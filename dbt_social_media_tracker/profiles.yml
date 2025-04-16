@@ -1,0 +1,27 @@
+dbt_lewagon:
+  target: dev
+  outputs:
+    dev:
+      type: bigquery
+      method: service-account
+      project: wagon-bootcamp-451201
+      dataset: dbt_fbossart_day2_advanced
+      threads: 1
+      location: EU
+      priority: interactive
+      job_execution_timeout_seconds: 300
+      job_retries: 1
+      keyfile: /app/airflow/.gcp_keys/le-wagon-de-bootcamp.json
+
+dbt_social_media_tracker:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: social_media_tracker_db  # Use service name, not localhost
+      user: dbt
+      password: ${DBT_DB_PASSWORD}
+      port: 5432  # Inside Docker network
+      dbname: social_db
+      schema: analytics
+      threads: 4
