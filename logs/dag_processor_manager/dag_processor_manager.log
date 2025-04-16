@@ -17320,3 +17320,7 @@ File Path                                   PID    Runtime      # DAGs    # Erro
 [2025-04-16T07:47:28.721+0000] {manager.py:485} INFO - Checking for new files in /app/airflow/dags every 300 seconds
 [2025-04-16T07:47:28.722+0000] {manager.py:821} INFO - Searching for files in /app/airflow/dags
 [2025-04-16T07:47:28.725+0000] {manager.py:824} INFO - There are 0 files in /app/airflow/dags
+[2025-04-16T07:52:29.540+0000] {manager.py:821} INFO - Searching for files in /app/airflow/dags
+[2025-04-16T07:52:29.542+0000] {manager.py:824} INFO - There are 0 files in /app/airflow/dags
+[2025-04-16T07:57:30.311+0000] {manager.py:821} INFO - Searching for files in /app/airflow/dags
+[2025-04-16T07:57:30.313+0000] {manager.py:824} INFO - There are 0 files in /app/airflow/dags
