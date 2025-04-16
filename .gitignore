@@ -11,3 +11,9 @@ __pycache__/
 
 # Direnv
 .envrc
+
+# db
+./database/
+database/
+./data_warehouse/
+data_warehouse/
