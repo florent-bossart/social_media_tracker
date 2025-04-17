@@ -1,0 +1,35 @@
+[2025-04-15T07:27:58.871+0000] {local_task_job_runner.py:123} INFO - ::group::Pre task execution logs
+[2025-04-15T07:27:58.908+0000] {taskinstance.py:2613} INFO - Dependencies all met for dep_context=non-requeueable deps ti=<TaskInstance: dbt_advanced.model.dbt_lewagon.my_second_dbt_model scheduled__2025-04-14T00:00:00+00:00 [queued]>
+[2025-04-15T07:27:58.923+0000] {taskinstance.py:2613} INFO - Dependencies all met for dep_context=requeueable deps ti=<TaskInstance: dbt_advanced.model.dbt_lewagon.my_second_dbt_model scheduled__2025-04-14T00:00:00+00:00 [queued]>
+[2025-04-15T07:27:58.924+0000] {taskinstance.py:2866} INFO - Starting attempt 1 of 1
+[2025-04-15T07:27:58.945+0000] {taskinstance.py:2889} INFO - Executing <Task(BashOperator): model.dbt_lewagon.my_second_dbt_model> on 2025-04-14 00:00:00+00:00
+[2025-04-15T07:27:58.961+0000] {standard_task_runner.py:104} INFO - Running: ['airflow', 'tasks', 'run', 'dbt_advanced', 'model.dbt_lewagon.my_second_dbt_model', 'scheduled__2025-04-14T00:00:00+00:00', '--job-id', '14', '--raw', '--subdir', 'DAGS_FOLDER/advanced/dbt_advanced.py', '--cfg-path', '/tmp/tmp1akbxqv4']
+[2025-04-15T07:27:58.963+0000] {standard_task_runner.py:105} INFO - Job 14: Subtask model.dbt_lewagon.my_second_dbt_model
+[2025-04-15T07:27:58.967+0000] {logging_mixin.py:190} WARNING - /root/.cache/pypoetry/virtualenvs/02-dbt-in-airflow-BsnH11MF-py3.12/lib/python3.12/site-packages/airflow/task/task_runner/standard_task_runner.py:70 DeprecationWarning: This process (pid=1342) is multi-threaded, use of fork() may lead to deadlocks in the child.
+[2025-04-15T07:27:58.968+0000] {standard_task_runner.py:72} INFO - Started process 1348 to run task
+[2025-04-15T07:27:59.066+0000] {task_command.py:467} INFO - Running <TaskInstance: dbt_advanced.model.dbt_lewagon.my_second_dbt_model scheduled__2025-04-14T00:00:00+00:00 [running]> on host 9a8ef20dd1da
+[2025-04-15T07:27:59.221+0000] {taskinstance.py:3132} INFO - Exporting env vars: AIRFLOW_CTX_DAG_OWNER='airflow' AIRFLOW_CTX_DAG_ID='dbt_advanced' AIRFLOW_CTX_TASK_ID='model.dbt_lewagon.my_second_dbt_model' AIRFLOW_CTX_EXECUTION_DATE='2025-04-14T00:00:00+00:00' AIRFLOW_CTX_TRY_NUMBER='1' AIRFLOW_CTX_DAG_RUN_ID='scheduled__2025-04-14T00:00:00+00:00'
+[2025-04-15T07:27:59.222+0000] {taskinstance.py:731} INFO - ::endgroup::
+[2025-04-15T07:27:59.249+0000] {subprocess.py:78} INFO - Tmp dir root location: /tmp
+[2025-04-15T07:27:59.249+0000] {subprocess.py:88} INFO - Running command: ['/usr/bin/bash', '-c', 'dbt run --models my_second_dbt_model --project-dir /app/airflow/dbt_lewagon']
+[2025-04-15T07:27:59.260+0000] {subprocess.py:99} INFO - Output:
+[2025-04-15T07:28:02.453+0000] {subprocess.py:106} INFO - [0m07:28:02  Running with dbt=1.9.1
+[2025-04-15T07:28:04.591+0000] {subprocess.py:106} INFO - [0m07:28:04  Registered adapter: bigquery=1.9.0
+[2025-04-15T07:28:05.701+0000] {subprocess.py:106} INFO - [0m07:28:05  Found 2 models, 4 data tests, 489 macros
+[2025-04-15T07:28:05.705+0000] {subprocess.py:106} INFO - [0m07:28:05
+[2025-04-15T07:28:05.706+0000] {subprocess.py:106} INFO - [0m07:28:05  Concurrency: 1 threads (target='dev')
+[2025-04-15T07:28:05.707+0000] {subprocess.py:106} INFO - [0m07:28:05
+[2025-04-15T07:28:07.006+0000] {subprocess.py:106} INFO - [0m07:28:07  1 of 1 START sql view model dbt_f***_day2_advanced.my_second_dbt_model ..... [RUN]
+[2025-04-15T07:28:08.733+0000] {subprocess.py:106} INFO - [0m07:28:08  1 of 1 OK created sql view model dbt_f***_day2_advanced.my_second_dbt_model  [[32mCREATE VIEW (0 processed)[0m in 1.72s]
+[2025-04-15T07:28:08.785+0000] {subprocess.py:106} INFO - [0m07:28:08
+[2025-04-15T07:28:08.786+0000] {subprocess.py:106} INFO - [0m07:28:08  Finished running 1 view model in 0 hours 0 minutes and 3.08 seconds (3.08s).
+[2025-04-15T07:28:08.939+0000] {subprocess.py:106} INFO - [0m07:28:08
+[2025-04-15T07:28:08.939+0000] {subprocess.py:106} INFO - [0m07:28:08  [32mCompleted successfully[0m
+[2025-04-15T07:28:08.940+0000] {subprocess.py:106} INFO - [0m07:28:08
+[2025-04-15T07:28:08.940+0000] {subprocess.py:106} INFO - [0m07:28:08  Done. PASS=1 WARN=0 ERROR=0 SKIP=0 TOTAL=1
+[2025-04-15T07:28:10.241+0000] {subprocess.py:110} INFO - Command exited with return code 0
+[2025-04-15T07:28:10.283+0000] {taskinstance.py:340} INFO - ::group::Post task execution logs
+[2025-04-15T07:28:10.284+0000] {taskinstance.py:352} INFO - Marking task as SUCCESS. dag_id=dbt_advanced, task_id=model.dbt_lewagon.my_second_dbt_model, run_id=scheduled__2025-04-14T00:00:00+00:00, execution_date=20250414T000000, start_date=20250415T072758, end_date=20250415T072810
+[2025-04-15T07:28:10.306+0000] {local_task_job_runner.py:266} INFO - Task exited with return code 0
+[2025-04-15T07:28:10.334+0000] {taskinstance.py:3895} INFO - 2 downstream tasks scheduled from follow-on schedule check
+[2025-04-15T07:28:10.336+0000] {local_task_job_runner.py:245} INFO - ::endgroup::
