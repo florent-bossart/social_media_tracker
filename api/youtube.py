@@ -1,6 +1,8 @@
 from googleapiclient.discovery import build
 import os
 from dotenv import load_dotenv
+from isodate import parse_duration
+
 
 load_dotenv()
 
@@ -49,81 +51,121 @@ def get_recent_comments_for_query(query: str, video_count=3, comment_count=5):
     return all_comments
 
 
-def search_and_fetch_comments(query, max_results=100):
-    api_key = os.getenv("YOUTUBE_API_KEY")  # Set this in your .env or environment
-    youtube = build("youtube", "v3", developerKey=api_key)
+def search_youtube_videos(youtube, query, page_token=None):
+    response = youtube.search().list(
+        q=query,
+        part="id",
+        type="video",
+        maxResults=50,
+        pageToken=page_token,
+        regionCode="JP",
+        videoDuration="medium",  # < 20 minutes
+        relevanceLanguage="ja"
+    ).execute()
+    video_ids = [item["id"]["videoId"] for item in response.get("items", [])]
+    return video_ids, response.get("nextPageToken")
 
-    collected_videos = []
-    next_page_token = None
-    total_collected = 0
-    attempts = 0
 
-    while total_collected < max_results and attempts < 10:
-        search_response = youtube.search().list(
-            q=query,
-            part="id",
-            type="video",
-            maxResults=50,
-            pageToken=next_page_token
-        ).execute()
+def fetch_video_details(youtube, video_ids):
+    response = youtube.videos().list(
+        part="snippet,statistics,contentDetails",
+        id=",".join(video_ids)
+    ).execute()
+    return response.get("items", [])
 
-        video_ids = [item["id"]["videoId"] for item in search_response.get("items", [])]
-        if not video_ids:
+
+def is_valid_music_video(video, min_views=10000, max_duration_sec=420):
+    snippet = video.get("snippet", {})
+    stats = video.get("statistics", {})
+    content = video.get("contentDetails", {})
+
+    try:
+        duration = parse_duration(content["duration"]).total_seconds()
+    except Exception:
+        return False
+
+    if (
+        snippet.get("categoryId") != "10"
+        or int(stats.get("viewCount", 0)) < min_views
+        or duration > max_duration_sec
+    ):
+        return False
+    return True
+
+
+def fetch_all_comments(youtube, video_id):
+    comments = []
+    page_token = None
+
+    while True:
+        try:
+            response = youtube.commentThreads().list(
+                part="snippet",
+                videoId=video_id,
+                textFormat="plainText",
+                maxResults=100,
+                pageToken=page_token
+            ).execute()
+
+            for item in response.get("items", []):
+                snippet = item["snippet"]["topLevelComment"]["snippet"]
+                comments.append({
+                    "author": snippet.get("authorDisplayName"),
+                    "text": snippet.get("textDisplay"),
+                    "published_at": snippet.get("publishedAt"),
+                    "like_count": snippet.get("likeCount", 0)
+                })
+
+            page_token = response.get("nextPageToken")
+            if not page_token:
+                break
+
+        except Exception as e:
+            print(f"Error fetching comments for {video_id}: {e}")
             break
 
-        video_response = youtube.videos().list(
-            part="snippet,statistics",
-            id=",".join(video_ids)
-        ).execute()
+    return comments
 
-        for video in video_response.get("items", []):
-            stats = video.get("statistics", {})
-            snippet = video.get("snippet", {})
 
-            view_count = int(stats.get("viewCount", 0))
-            if view_count < 10000:
-                continue  # skip low-visibility videos
+def search_and_fetch_comments(query, max_results=100):
+    api_key = os.getenv("YOUTUBE_API_KEY")
+    youtube = build("youtube", "v3", developerKey=api_key)
+
+    collected = []
+    next_page_token = None
+    attempts = 0
+
+    while len(collected) < max_results and attempts < 20:
+        video_ids, next_page_token = search_youtube_videos(youtube, query, next_page_token)
+        video_items = fetch_video_details(youtube, video_ids)
+
+        for video in video_items:
+            if not is_valid_music_video(video):
+                continue
+
+            snippet = video["snippet"]
+            stats = video["statistics"]
+            details = video["contentDetails"]
+            duration = parse_duration(details["duration"]).total_seconds()
 
             video_data = {
                 "video_id": video["id"],
                 "title": snippet.get("title"),
                 "channel_title": snippet.get("channelTitle"),
                 "published_at": snippet.get("publishedAt"),
-                "view_count": view_count,
+                "view_count": int(stats.get("viewCount", 0)),
                 "like_count": int(stats.get("likeCount", 0)),
                 "comment_count": int(stats.get("commentCount", 0)),
-                "comments": []
+                "duration_seconds": duration,
+                "comments": fetch_all_comments(youtube, video["id"])
             }
 
-            # Fetch top-level comments
-            try:
-                comment_response = youtube.commentThreads().list(
-                    part="snippet",
-                    videoId=video["id"],
-                    textFormat="plainText",
-                    maxResults=20
-                ).execute()
-
-                for item in comment_response.get("items", []):
-                    comment_snippet = item["snippet"]["topLevelComment"]["snippet"]
-                    video_data["comments"].append({
-                        "author": comment_snippet.get("authorDisplayName"),
-                        "text": comment_snippet.get("textDisplay"),
-                        "published_at": comment_snippet.get("publishedAt"),
-                        "like_count": comment_snippet.get("likeCount", 0)
-                    })
-            except Exception as e:
-                print(f"Failed to fetch comments for video {video['id']}: {e}")
-
-            collected_videos.append(video_data)
-            total_collected += 1
-
-            if total_collected >= max_results:
+            collected.append(video_data)
+            if len(collected) >= max_results:
                 break
 
-        next_page_token = search_response.get("nextPageToken")
         if not next_page_token:
-            break  # no more pages
+            break
         attempts += 1
 
-    return collected_videos
+    return collected
