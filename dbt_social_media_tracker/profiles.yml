@@ -1,18 +1,3 @@
-dbt_lewagon:
-  target: dev
-  outputs:
-    dev:
-      type: bigquery
-      method: service-account
-      project: wagon-bootcamp-451201
-      dataset: dbt_fbossart_day2_advanced
-      threads: 1
-      location: EU
-      priority: interactive
-      job_execution_timeout_seconds: 300
-      job_retries: 1
-      keyfile: /app/airflow/.gcp_keys/le-wagon-de-bootcamp.json
-
 dbt_social_media_tracker:
   target: dev
   outputs:

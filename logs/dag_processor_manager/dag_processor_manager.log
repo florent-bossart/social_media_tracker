@@ -17324,3 +17324,56 @@ File Path                                   PID    Runtime      # DAGs    # Erro
 [2025-04-16T07:52:29.542+0000] {manager.py:824} INFO - There are 0 files in /app/airflow/dags
 [2025-04-16T07:57:30.311+0000] {manager.py:821} INFO - Searching for files in /app/airflow/dags
 [2025-04-16T07:57:30.313+0000] {manager.py:824} INFO - There are 0 files in /app/airflow/dags
+[2025-04-17T06:33:15.958+0000] {manager.py:483} INFO - Processing files using up to 2 processes at a time 
+[2025-04-17T06:33:15.959+0000] {manager.py:484} INFO - Process each file at most once every 30 seconds
+[2025-04-17T06:33:15.960+0000] {manager.py:485} INFO - Checking for new files in /app/airflow/dags every 300 seconds
+[2025-04-17T06:33:15.961+0000] {manager.py:821} INFO - Searching for files in /app/airflow/dags
+[2025-04-17T06:33:15.965+0000] {manager.py:824} INFO - There are 0 files in /app/airflow/dags
+[2025-04-17T06:36:53.809+0000] {manager.py:465} INFO - Exiting gracefully upon receiving signal 15
+[2025-04-17T06:39:13.490+0000] {manager.py:483} INFO - Processing files using up to 2 processes at a time 
+[2025-04-17T06:39:13.495+0000] {manager.py:484} INFO - Process each file at most once every 30 seconds
+[2025-04-17T06:39:13.496+0000] {manager.py:485} INFO - Checking for new files in /app/airflow/dags every 300 seconds
+[2025-04-17T06:39:13.497+0000] {manager.py:821} INFO - Searching for files in /app/airflow/dags
+[2025-04-17T06:39:13.501+0000] {manager.py:824} INFO - There are 0 files in /app/airflow/dags
+[2025-04-17T06:44:14.306+0000] {manager.py:821} INFO - Searching for files in /app/airflow/dags
+[2025-04-17T06:44:14.308+0000] {manager.py:824} INFO - There are 0 files in /app/airflow/dags
+[2025-04-17T06:49:14.312+0000] {manager.py:821} INFO - Searching for files in /app/airflow/dags
+[2025-04-17T06:49:14.316+0000] {manager.py:824} INFO - There are 0 files in /app/airflow/dags
+[2025-04-17T06:54:15.070+0000] {manager.py:821} INFO - Searching for files in /app/airflow/dags
+[2025-04-17T06:54:15.072+0000] {manager.py:824} INFO - There are 0 files in /app/airflow/dags
+[2025-04-17T06:59:15.811+0000] {manager.py:821} INFO - Searching for files in /app/airflow/dags
+[2025-04-17T06:59:15.813+0000] {manager.py:824} INFO - There are 0 files in /app/airflow/dags
+[2025-04-17T07:04:16.618+0000] {manager.py:821} INFO - Searching for files in /app/airflow/dags
+[2025-04-17T07:04:16.620+0000] {manager.py:824} INFO - There are 0 files in /app/airflow/dags
+[2025-04-17T07:09:17.401+0000] {manager.py:821} INFO - Searching for files in /app/airflow/dags
+[2025-04-17T07:09:17.403+0000] {manager.py:824} INFO - There are 0 files in /app/airflow/dags
+[2025-04-17T07:14:18.166+0000] {manager.py:821} INFO - Searching for files in /app/airflow/dags
+[2025-04-17T07:14:18.168+0000] {manager.py:824} INFO - There are 0 files in /app/airflow/dags
+[2025-04-17T07:19:18.949+0000] {manager.py:821} INFO - Searching for files in /app/airflow/dags
+[2025-04-17T07:19:18.951+0000] {manager.py:824} INFO - There are 0 files in /app/airflow/dags
+[2025-04-17T07:24:19.728+0000] {manager.py:821} INFO - Searching for files in /app/airflow/dags
+[2025-04-17T07:24:19.730+0000] {manager.py:824} INFO - There are 0 files in /app/airflow/dags
+[2025-04-17T07:29:20.541+0000] {manager.py:821} INFO - Searching for files in /app/airflow/dags
+[2025-04-17T07:29:20.543+0000] {manager.py:824} INFO - There are 0 files in /app/airflow/dags
+[2025-04-17T07:34:21.326+0000] {manager.py:821} INFO - Searching for files in /app/airflow/dags
+[2025-04-17T07:34:21.329+0000] {manager.py:824} INFO - There are 0 files in /app/airflow/dags
+[2025-04-17T07:39:22.181+0000] {manager.py:821} INFO - Searching for files in /app/airflow/dags
+[2025-04-17T07:39:22.184+0000] {manager.py:824} INFO - There are 0 files in /app/airflow/dags
+[2025-04-17T07:44:23.012+0000] {manager.py:821} INFO - Searching for files in /app/airflow/dags
+[2025-04-17T07:44:23.015+0000] {manager.py:824} INFO - There are 0 files in /app/airflow/dags
+[2025-04-17T07:49:23.815+0000] {manager.py:821} INFO - Searching for files in /app/airflow/dags
+[2025-04-17T07:49:23.818+0000] {manager.py:824} INFO - There are 0 files in /app/airflow/dags
+[2025-04-17T07:54:24.651+0000] {manager.py:821} INFO - Searching for files in /app/airflow/dags
+[2025-04-17T07:54:24.653+0000] {manager.py:824} INFO - There are 0 files in /app/airflow/dags
+[2025-04-17T07:59:25.476+0000] {manager.py:821} INFO - Searching for files in /app/airflow/dags
+[2025-04-17T07:59:25.479+0000] {manager.py:824} INFO - There are 0 files in /app/airflow/dags
+[2025-04-17T08:04:26.295+0000] {manager.py:821} INFO - Searching for files in /app/airflow/dags
+[2025-04-17T08:04:26.298+0000] {manager.py:824} INFO - There are 0 files in /app/airflow/dags
+[2025-04-17T08:09:27.118+0000] {manager.py:821} INFO - Searching for files in /app/airflow/dags
+[2025-04-17T08:09:27.120+0000] {manager.py:824} INFO - There are 0 files in /app/airflow/dags
+[2025-04-17T08:14:27.261+0000] {manager.py:821} INFO - Searching for files in /app/airflow/dags
+[2025-04-17T08:14:27.263+0000] {manager.py:824} INFO - There are 0 files in /app/airflow/dags
+[2025-04-17T08:19:27.773+0000] {manager.py:821} INFO - Searching for files in /app/airflow/dags
+[2025-04-17T08:19:27.775+0000] {manager.py:824} INFO - There are 0 files in /app/airflow/dags
+[2025-04-17T08:24:28.626+0000] {manager.py:821} INFO - Searching for files in /app/airflow/dags
+[2025-04-17T08:24:28.628+0000] {manager.py:824} INFO - There are 0 files in /app/airflow/dags
