@@ -11,44 +11,10 @@ YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
 youtube = build("youtube", "v3", developerKey=YOUTUBE_API_KEY)
 
 
-def search_recent_videos(query: str, max_results=3):
-    request = youtube.search().list(
-        q=query,
-        part="snippet",
-        type="video",
-        order="date",
-        maxResults=max_results
-    )
-    response = request.execute()
-    return [item["id"]["videoId"] for item in response.get("items", [])]
-
-
-def get_comments(video_id: str, max_comments=10):
-    comments = []
-    request = youtube.commentThreads().list(
-        part="snippet",
-        videoId=video_id,
-        maxResults=max_comments,
-        textFormat="plainText"
-    )
-    response = request.execute()
-
-    for item in response.get("items", []):
-        top_comment = item["snippet"]["topLevelComment"]["snippet"]["textDisplay"]
-        comments.append(top_comment)
-
-    return comments
-
-
-def get_recent_comments_for_query(query: str, video_count=3, comment_count=5):
-    video_ids = search_recent_videos(query, max_results=video_count)
-    all_comments = {}
-
-    for vid in video_ids:
-        comments = get_comments(vid, max_comments=comment_count)
-        all_comments[vid] = comments
-
-    return all_comments
+# Region and duration filters
+TARGET_REGION = "JP"
+MIN_VIEWS = 10_000
+MAX_DURATION_MINUTES = 7
 
 
 def search_youtube_videos(youtube, query, page_token=None):
