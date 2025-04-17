@@ -1,16 +1,36 @@
-[project]
-name = "social-media-tracker"
+[tool.poetry]
+name = "Social Media Tracker"
 version = "0.1.0"
-description = ""
-authors = [
-    {name = "Florent Bossart",email = "florent.bossart@gmail.com"}
-]
-readme = "README.md"
-requires-python = "^3.12"
-dependencies = [
-]
+description = "Social Media Sentiment Tracker for Global Trends"
+authors = ["F. Bossart <florent.bossart@gmail.com>"]
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.12,<3.13"
+apache-airflow = "^2.10.4"
+psycopg2-binary = "^2.9.10"
+apache-airflow-providers-postgres = "^5.14.0"
+dbt-core = "^1.9.1"
+dbt-bigquery = "^1.9.0"
+pendulum = "^3.0.0"
+dbt-postgres = "^1.9.0"
+fastapi = "^0.115.12"
+uvicorn = "^0.34.1"
+tweepy = "^4.15.0"
+python-dotenv = "^1.1.0"
+praw = "^7.8.1"
+requests = "^2.32.3"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.4"
+apache-airflow-providers-sqlite = "^4.0.0"
+dockerfile = "^3.3.1"
+pyyaml = "^6.0.2"
 
 
 [build-system]
-requires = ["poetry-core>=2.0.0,<3.0.0"]
+requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+markers = ["optional: not required, nor saved in test_output.txt"]
