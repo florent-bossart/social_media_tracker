@@ -20,6 +20,8 @@ tweepy = "^4.15.0"
 python-dotenv = "^1.1.0"
 praw = "^7.8.1"
 requests = "^2.32.3"
+google-api-python-client = "^2.167.0"
+trove-classifiers = "^2025.4.28.22"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.4"
