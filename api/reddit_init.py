@@ -21,19 +21,18 @@ reddit = praw.Reddit(
 DATA_DIR = "data"
 os.makedirs(DATA_DIR, exist_ok=True)
 
-def fetch_reddit_posts_daily(subreddit: str):
+def fetch_reddit_posts_full(subreddit: str):
     """
-    Fetch posts and their top-level comments for a given subreddit from the previous day.
+    Fetch posts and their top-level comments from the past rolling year for a given subreddit.
 
     :param subreddit: Name of the subreddit
     """
-    # Calculate the date range for the previous day
     today = datetime.now(timezone.utc)
-    yesterday = today - timedelta(days=1)
-    start_time = int(yesterday.replace(hour=0, minute=0, second=0, microsecond=0).timestamp())
-    end_time = int(today.replace(hour=0, minute=0, second=0, microsecond=0).timestamp())
+    one_year_ago = today - timedelta(days=365)
+    start_time = int(one_year_ago.timestamp())
+    end_time = int(today.timestamp())
 
-    posts = reddit.subreddit(subreddit).new(limit=100)
+    posts = reddit.subreddit(subreddit).new(limit=1000)
     filtered_posts = []
 
     for post in posts:
@@ -60,7 +59,7 @@ def fetch_reddit_posts_daily(subreddit: str):
             })
 
     # Save data to JSON file
-    file_path = os.path.join(DATA_DIR, f"daily_{subreddit}_{yesterday.date()}.json")
+    file_path = os.path.join(DATA_DIR, f"full_{subreddit}_{today.date()}.json")
     with open(file_path, "w", encoding="utf-8") as f:
         import json
         json.dump(filtered_posts, f, ensure_ascii=False, indent=2)
