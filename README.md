@@ -1,5 +1,33 @@
 # 📊 Project: Social Media Sentiment Tracker for Global Trends
 
+## PROJECT STATUS :
+[DONE]
+Docker compose for DBT, AIRFLOW, POSTGRES Database, FastAPI container to query youtube and reddit easily
+Built API query logic + file generation
+
+[NEXT]
+Keep running the data extraction manually for a few days to have enough data to work with
+Initiate database schema
+Initial load of the raw data / build Integration Pipeline
+
+[LATER]
+Test different LLM to detect trends
+Build Transformation Pipeline
+Define PROD data model, to be able to start working on dashboards
+Write DAGS for full orchestration
+Finalise Dashboards
+
+[ENHANCEMENTS]
+Add logging
+Better error handling
+Unit tests
+Refactor duplicated code
+More doc
+
+
+
+
+
 ## 📝 Project Description
 
 Build an automated data pipeline that tracks trending hashtags and topics on social media (like Twitter/X and Reddit), analyzes the sentiment of public posts in real-time or near-real-time, and visualizes evolving public opinions on different themes (e.g., tech innovations, climate change, major events).
@@ -97,7 +125,7 @@ The pipeline will be orchestrated using **Airflow**, and data transformation wil
 
 ## 🧩 Optional Next Steps
 
-- [ ] Define target hashtags/topics
+- [x] Define target hashtags/topics
 - [ ] Set up GitHub repository and CI/CD (GitHub Actions)
 - [ ] Prepare project demo video or presentation slides
 - [ ] (Optional) Add Docker Compose for full project deployment
