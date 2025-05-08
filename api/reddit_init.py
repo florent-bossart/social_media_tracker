@@ -11,6 +11,9 @@ REDDIT_CLIENT_ID = os.getenv("REDDIT_CLIENT_ID")
 REDDIT_CLIENT_SECRET = os.getenv("REDDIT_CLIENT_SECRET")
 REDDIT_USER_AGENT = os.getenv("REDDIT_USER_AGENT")
 
+# Define the base data directory
+DATA_DIR = "data/reddit"
+
 # Set up Reddit authentication
 reddit = praw.Reddit(
     client_id=REDDIT_CLIENT_ID,
@@ -18,8 +21,6 @@ reddit = praw.Reddit(
     user_agent=REDDIT_USER_AGENT
 )
 
-DATA_DIR = "data"
-os.makedirs(DATA_DIR, exist_ok=True)
 
 def fetch_reddit_posts_full(subreddit: str):
     """
@@ -31,6 +32,7 @@ def fetch_reddit_posts_full(subreddit: str):
     one_year_ago = today - timedelta(days=365)
     start_time = int(one_year_ago.timestamp())
     end_time = int(today.timestamp())
+    date_folder = today.date()  # e.g., 2025-05-08
 
     posts = reddit.subreddit(subreddit).new(limit=1000)
     filtered_posts = []
@@ -58,8 +60,13 @@ def fetch_reddit_posts_full(subreddit: str):
                 "comments": top_level_comments
             })
 
+
+    # Create the directory path with the date
+    date_directory = os.path.join(DATA_DIR, str(date_folder))
+    os.makedirs(date_directory, exist_ok=True)  # Ensure the directory exists
+
     # Save data to JSON file
-    file_path = os.path.join(DATA_DIR, f"full_{subreddit}_{today.date()}.json")
+    file_path = os.path.join(date_directory, f"full_{subreddit}_{today.date()}.json")
     with open(file_path, "w", encoding="utf-8") as f:
         import json
         json.dump(filtered_posts, f, ensure_ascii=False, indent=2)

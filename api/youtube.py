@@ -13,16 +13,16 @@ from googleapiclient.errors import HttpError
 from .youtube_quota import quota
 from .track_fetched_data import (
     add_fetched_video,
-    add_fetched_comments,
+    add_fetched_comment_ids,
     get_fetched_videos,
-    get_fetched_comments
+    get_fetched_comment_ids
 )
 
 
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
 youtube = build("youtube", "v3", developerKey=YOUTUBE_API_KEY)
 
-DATA_DIR = Path("/app/data")
+DATA_DIR = Path("/app/data/youtube")
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 LOGS_DIR = Path("../logs")  # Directory for request logs
@@ -154,15 +154,26 @@ def fetch_video_comments(video_id: str) -> List[dict]:
             order="time"
         )
         response = request.execute()
-        comments = [
+
+        # Extract comment IDs and full comment details
+        comment_details = [
             {
+                "id": item["snippet"]["topLevelComment"]["id"],
                 "text": item["snippet"]["topLevelComment"]["snippet"]["textDisplay"],
                 "author": item["snippet"]["topLevelComment"]["snippet"].get("authorDisplayName"),
                 "published_at": item["snippet"]["topLevelComment"]["snippet"]["publishedAt"]
             }
             for item in response.get("items", [])
         ]
-        return comments
+        comment_ids = [comment["id"] for comment in comment_details]
+
+        # Track only comment IDs
+        existing_comment_ids = get_fetched_comment_ids(video_id)
+        new_comment_ids = [cid for cid in comment_ids if cid not in existing_comment_ids]
+        add_fetched_comment_ids(video_id, new_comment_ids)
+
+        # Return full details for processing (e.g., saving snapshots)
+        return [comment for comment in comment_details if comment["id"] in new_comment_ids]
     except HttpError as e:
         print(f"Failed to fetch comments for video {video_id}: {e}")
         return []
@@ -183,10 +194,11 @@ def search_and_fetch_video_data(query: str):
 
     for video in video_data:
         video_id = video["video_id"]
-        comment_ids = fetch_video_comments(video_id)
+        comments = fetch_video_comments(video_id)
+        comment_ids = [comment["id"] for comment in comments]  # Extract comment IDs
         add_fetched_video(video_id)  # Add to fetched videos
-        add_fetched_comments(video_id, comment_ids)  # Add fetched comment IDs
-        all_comments.extend([{"video_id": video_id, "comment_id": cid} for cid in comment_ids])
+        add_fetched_comment_ids(video_id, comment_ids)  # Add fetched comment IDs
+        all_comments.extend([{"video_id": video_id, **comment} for comment in comments])
 
     return video_data, all_comments
 
