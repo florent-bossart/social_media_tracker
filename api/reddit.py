@@ -18,7 +18,7 @@ reddit = praw.Reddit(
     user_agent=REDDIT_USER_AGENT
 )
 
-DATA_DIR = "data"
+DATA_DIR = "data/reddit"
 os.makedirs(DATA_DIR, exist_ok=True)
 
 def fetch_reddit_posts_daily(subreddit: str):
@@ -32,6 +32,7 @@ def fetch_reddit_posts_daily(subreddit: str):
     yesterday = today - timedelta(days=1)
     start_time = int(yesterday.replace(hour=0, minute=0, second=0, microsecond=0).timestamp())
     end_time = int(today.replace(hour=0, minute=0, second=0, microsecond=0).timestamp())
+    date_folder = today.date()  # e.g., 2025-05-08
 
     posts = reddit.subreddit(subreddit).new(limit=100)
     filtered_posts = []
@@ -59,8 +60,13 @@ def fetch_reddit_posts_daily(subreddit: str):
                 "comments": top_level_comments
             })
 
+
+    # Create the directory path with the date
+    date_directory = os.path.join(DATA_DIR, str(date_folder))
+    os.makedirs(date_directory, exist_ok=True)  # Ensure the directory exists
+
     # Save data to JSON file
-    file_path = os.path.join(DATA_DIR, f"daily_{subreddit}_{yesterday.date()}.json")
+    file_path = os.path.join(date_directory, f"daily_{subreddit}_{yesterday.date()}.json")
     with open(file_path, "w", encoding="utf-8") as f:
         import json
         json.dump(filtered_posts, f, ensure_ascii=False, indent=2)
