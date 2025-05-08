@@ -289,3 +289,9 @@ airflow-build-dockerfile*
 *.zip
 
 _api/
+
+data/
+logs/
+dbt_social_media_tracker/logs/
+logs/dag_processor_manager/
+logs/scheduler/
