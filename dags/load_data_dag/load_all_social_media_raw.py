@@ -1,16 +1,12 @@
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from datetime import datetime
-from data_pipeline.init_db import main as init_db_main
-from data_pipeline.load_json_to_postgres import load_all_files
-from sqlalchemy import create_engine
-import os
-
-def get_engine():
-    return create_engine(os.environ["AIRFLOW__DATABASE__SQL_ALCHEMY_CONN"])
+from data_pipeline.load_json_to_postgres import metadata, load_all_files, get_engine
 
 def run_init_db():
-    init_db_main()
+    engine = get_engine()
+    metadata.create_all(engine)
+    print("All tables created (if not already present).")
 
 def run_load_all_files():
     engine = get_engine()
