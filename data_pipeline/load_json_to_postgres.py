@@ -178,6 +178,16 @@ def load_all_files(conn):
     load_reddit_files("data/reddit", conn)
     load_youtube_files("data/youtube", conn)
 
+
+def get_engine():
+    PG_USER = os.getenv("WAREHOUSE_USER")
+    PG_PW = os.getenv("WAREHOUSE_PASSWORD")
+    PG_HOST = os.getenv("WAREHOUSE_HOST")
+    PG_PORT = os.getenv("WAREHOUSE_PORT", "5432")
+    PG_DB = os.getenv("WAREHOUSE_DB")
+    DATABASE_URL = f"postgresql+psycopg2://{PG_USER}:{PG_PW}@{PG_HOST}:{PG_PORT}/{PG_DB}"
+    return create_engine(DATABASE_URL)
+
 if __name__ == "__main__":
     with engine.begin() as conn:
         load_reddit_files("data/reddit", conn)

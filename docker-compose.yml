@@ -33,6 +33,11 @@ services:
       - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:$POSTGRES_PASSWORD@postgres:5432/db
       - AIRFLOW__CORE__LOAD_EXAMPLES=false
       - PYTHONPATH=/app:/app/data_pipeline
+      - WAREHOUSE_HOST=${WAREHOUSE_HOST}
+      - WAREHOUSE_PORT=${WAREHOUSE_PORT}
+      - WAREHOUSE_DB=${WAREHOUSE_DB}
+      - WAREHOUSE_USER=${WAREHOUSE_USER}
+      - WAREHOUSE_PASSWORD=${WAREHOUSE_PASSWORD}
     volumes:
       - ./dags:/app/airflow/dags
       - ./data:/app/airflow/data
@@ -57,6 +62,11 @@ services:
       - POSTGRES_PASSWORD=$POSTGRES_PASSWORD
       - POSTGRES_USER=airflow
       - PYTHONPATH=/app:/app/data_pipeline
+      - WAREHOUSE_HOST=${WAREHOUSE_HOST}
+      - WAREHOUSE_PORT=${WAREHOUSE_PORT}
+      - WAREHOUSE_DB=${WAREHOUSE_DB}
+      - WAREHOUSE_USER=${WAREHOUSE_USER}
+      - WAREHOUSE_PASSWORD=${WAREHOUSE_PASSWORD}
     volumes:
       - ./dags:/app/airflow/dags
       - ./data:/app/airflow/data
