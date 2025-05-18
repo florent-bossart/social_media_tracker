@@ -173,11 +173,93 @@ def load_youtube_files(base_dir, conn):
                         conn.execute(youtube_comments.insert().values(**comment_data))
             print(f"Loaded youtube file {file}")
 
+def load_reddit_files_for_date(date_str, conn):
+    """Load only for a specific date YYYY-MM-DD."""
+    day_dir = Path("data/reddit") / date_str
+    if not day_dir.is_dir():
+        print(f"Reddit dir {day_dir} not found.")
+        return
+    fetch_date = date_str
+    for file in day_dir.glob("*.json"):
+        subreddit = parse_subreddit_from_filename(file.name)
+        if not subreddit:
+            continue
+        with open(file, "r", encoding="utf-8") as f:
+            posts = json.load(f)
+            for post in posts:
+                post_data = dict(
+                    title=post.get("title"),
+                    author=post.get("author"),
+                    url=post.get("url"),
+                    selftext=post.get("selftext"),
+                    created_utc=post.get("created_utc"),
+                    source=subreddit,
+                    fetch_date=fetch_date
+                )
+                conn.execute(reddit_posts.insert().values(**post_data))
+                # Insert comments (flattened)
+                for c in post.get("comments", []):
+                    comment_data = dict(
+                        post_title=post.get("title"),
+                        post_url=post.get("url"),
+                        author=c.get("author"),
+                        body=c.get("body"),
+                        created_utc=c.get("created_utc"),
+                        source=subreddit,
+                        fetch_date=fetch_date
+                    )
+                    conn.execute(reddit_comments.insert().values(**comment_data))
+        print(f"Loaded reddit file {file}")
+
+def load_youtube_files_for_date(date_str, conn):
+    """Load only for a specific date YYYY-MM-DD."""
+    day_dir = Path("data/youtube") / date_str
+    if not day_dir.is_dir():
+        print(f"YouTube dir {day_dir} not found.")
+        return
+    fetch_date = date_str
+    for file in day_dir.glob("*.json"):
+        keyword = parse_keyword_from_filename(file.name)
+        if not keyword:
+            continue
+        with open(file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            if file.name.startswith("videos_"):
+                for vid in data:
+                    video_data = dict(
+                        video_id=vid.get("video_id"),
+                        title=vid.get("title"),
+                        channel_title=vid.get("channel_title"),
+                        published_at=vid.get("published_at"),
+                        view_count=vid.get("view_count"),
+                        like_count=vid.get("like_count"),
+                        comment_count=vid.get("comment_count"),
+                        duration_seconds=vid.get("duration_seconds"),
+                        keyword=keyword,
+                        fetch_date=fetch_date
+                    )
+                    conn.execute(youtube_videos.insert().values(**video_data))
+            elif file.name.startswith("comments_"):
+                for com in data:
+                    comment_data = dict(
+                        video_id=com.get("video_id"),
+                        comment_id=com.get("id"),
+                        text=com.get("text"),
+                        author=com.get("author"),
+                        published_at=com.get("published_at"),
+                        keyword=keyword,
+                        fetch_date=fetch_date
+                    )
+                    conn.execute(youtube_comments.insert().values(**comment_data))
+        print(f"Loaded youtube file {file}")
 
 def load_all_files(conn):
     load_reddit_files("data/reddit", conn)
     load_youtube_files("data/youtube", conn)
 
+def load_all_files_for_date(date_str, conn):
+    load_reddit_files_for_date(date_str, conn)
+    load_youtube_files_for_date(date_str, conn)
 
 def get_engine():
     PG_USER = os.getenv("WAREHOUSE_USER")
@@ -189,7 +271,8 @@ def get_engine():
     return create_engine(DATABASE_URL)
 
 if __name__ == "__main__":
+    today_str = datetime.utcnow().strftime("%Y-%m-%d")
     with engine.begin() as conn:
-        load_reddit_files("data/reddit", conn)
-        load_youtube_files("data/youtube", conn)
-        print("All files loaded.")
+        load_reddit_files_for_date(today_str, conn)
+        load_youtube_files_for_date(today_str, conn)
+        print("Today's files loaded.")
