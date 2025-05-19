@@ -1,0 +1,30 @@
+version: 2
+
+models:
+  - name: cleaned_youtube_comments
+    description: "YouTube comments with cleaned text fields and original video_id as join key."
+    columns:
+      - name: comment_pk
+        description: "Internal integer primary key for the comment row."
+        tests:
+          - not_null
+          - unique
+      - name: video_id
+        description: "YouTube video ID, used as join key to cleaned_youtube_videos."
+        tests:
+          - not_null
+      - name: comment_id
+        description: "YouTube comment ID, unique per comment."
+        tests:
+          - not_null
+          - unique
+      - name: text_clean
+        description: "Lowercased, trimmed comment text."
+      - name: author_clean
+        description: "Lowercased, trimmed comment author."
+      - name: published_at
+        description: "Original YouTube comment publication timestamp."
+      - name: keyword_clean
+        description: "Lowercased, trimmed keyword used for search or collection."
+      - name: fetch_date
+        description: "Date when the comment record was fetched."

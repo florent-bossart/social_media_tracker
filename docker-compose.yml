@@ -111,6 +111,18 @@ services:
     depends_on:
       - social_media_tracker_db
 
+  dbt:
+    image: ghcr.io/dbt-labs/dbt-postgres:latest
+    environment:
+      DBT_DB_PASSWORD: ${DBT_DB_PASSWORD}
+      DBT_PROFILES_DIR: /usr/app/dbt_social_media_tracker
+    volumes:
+      - ./dbt_social_media_tracker:/usr/app/dbt_social_media_tracker
+    working_dir: /usr/app/dbt_social_media_tracker
+    depends_on:
+      - social_media_tracker_db
+    # entrypoint: [ "tail", "-f", "/dev/null" ] # Keeps the container running for exec, or change for CLI usage
+
 volumes:
   pgdata:
   warehousedata:

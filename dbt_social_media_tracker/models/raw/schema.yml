@@ -1,0 +1,10 @@
+version: 2
+
+sources:
+  - name: raw
+    schema: raw
+    tables:
+      - name: reddit_posts
+      - name: reddit_comments
+      - name: youtube_videos
+      - name: youtube_comments

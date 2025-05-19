@@ -20,6 +20,9 @@ DATABASE_URL = f"postgresql+psycopg2://{PG_USER}:{PG_PW}@{PG_HOST}:{PG_PORT}/{PG
 engine = create_engine(DATABASE_URL)
 metadata = MetaData()
 
+def ensure_raw_schema(conn):
+    conn.execute(sql_text("CREATE SCHEMA IF NOT EXISTS raw;"))
+
 reddit_posts = Table(
     "reddit_posts", metadata,
     Column("id", Integer, primary_key=True),
@@ -30,7 +33,8 @@ reddit_posts = Table(
     Column("created_utc", Float(precision=53)),
     Column("source", Text),
     Column("fetch_date", Date),
-    Column("loaded_at", PG_TIMESTAMP, server_default=sql_text("now()"))
+    Column("loaded_at", PG_TIMESTAMP, server_default=sql_text("now()")),
+    schema="raw"
 )
 
 reddit_comments = Table(
@@ -43,7 +47,8 @@ reddit_comments = Table(
     Column("created_utc", Float(precision=53)),
     Column("source", Text),
     Column("fetch_date", Date),
-    Column("loaded_at", PG_TIMESTAMP, server_default=sql_text("now()"))
+    Column("loaded_at", PG_TIMESTAMP, server_default=sql_text("now()")),
+    schema="raw"
 )
 
 youtube_videos = Table(
@@ -59,7 +64,8 @@ youtube_videos = Table(
     Column("duration_seconds", Integer),
     Column("keyword", Text),
     Column("fetch_date", Date),
-    Column("loaded_at", PG_TIMESTAMP, server_default=sql_text("now()"))
+    Column("loaded_at", PG_TIMESTAMP, server_default=sql_text("now()")),
+    schema="raw"
 )
 
 youtube_comments = Table(
@@ -72,7 +78,8 @@ youtube_comments = Table(
     Column("published_at", PG_TIMESTAMP),
     Column("keyword", Text),
     Column("fetch_date", Date),
-    Column("loaded_at", PG_TIMESTAMP, server_default=sql_text("now()"))
+    Column("loaded_at", PG_TIMESTAMP, server_default=sql_text("now()")),
+    schema="raw"
 )
 
 def parse_fetch_date_from_path(path):

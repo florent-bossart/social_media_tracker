@@ -1,0 +1,28 @@
+version: 2
+
+models:
+  - name: recent_reddit_posts
+    description: "Recent Reddit posts from the last 7 days"
+    columns:
+      - name: id
+        description: "Primary key"
+        tests:
+          - not_null
+      - name: title
+        description: "Post title"
+      - name: author
+        description: "Post author"
+      - name: url
+        description: "Post URL"
+      - name: selftext
+        description: "Post body"
+      - name: created_utc
+        description: "UTC timestamp of creation"
+      - name: source
+        description: "Subreddit name"
+      - name: fetch_date
+        description: "Date data was fetched"
+        tests:
+          - not_null
+      - name: loaded_at
+        description: "Timestamp when loaded into warehouse"
