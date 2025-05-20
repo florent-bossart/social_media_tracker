@@ -1,0 +1,25 @@
+version: 2
+
+models:
+  - name: cleaned_reddit_comments
+    description: "Reddit comments with cleaned fields and assigned post_id from cleaned_reddit_posts."
+    columns:
+      - name: comment_id
+        description: "Unique comment ID."
+        tests:
+          - not_null
+          - unique
+      - name: post_id
+        description: "ID of the related reddit post."
+        tests:
+          - not_null
+      - name: author_clean
+        description: "Lowercased and trimmed comment author."
+      - name: body_clean
+        description: "Lowercased and trimmed comment body."
+      - name: body_urls
+        description: "Array of URLs extracted from comment body."
+      - name: created_utc_fmt
+        description: "Formatted creation timestamp."
+      - name: fetch_date_fmt
+        description: "Formatted fetch date."

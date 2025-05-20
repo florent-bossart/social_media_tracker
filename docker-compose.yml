@@ -6,7 +6,7 @@ services:
       - POSTGRES_PASSWORD=$POSTGRES_PASSWORD
       - POSTGRES_USER=airflow
     volumes:
-      - ./database/:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -d db -U airflow || exit 1"]
       interval: 15s
@@ -16,7 +16,8 @@ services:
     restart: always
 
   scheduler:
-    build: .
+    build:
+      context: .
     command: poetry run airflow scheduler
     restart: on-failure
     healthcheck:
@@ -31,16 +32,23 @@ services:
       - AIRFLOW__CORE__EXECUTOR=LocalExecutor
       - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:$POSTGRES_PASSWORD@postgres:5432/db
       - AIRFLOW__CORE__LOAD_EXAMPLES=false
+      - PYTHONPATH=/app:/app/data_pipeline
+      - WAREHOUSE_HOST=${WAREHOUSE_HOST}
+      - WAREHOUSE_PORT=${WAREHOUSE_PORT}
+      - WAREHOUSE_DB=${WAREHOUSE_DB}
+      - WAREHOUSE_USER=${WAREHOUSE_USER}
+      - WAREHOUSE_PASSWORD=${WAREHOUSE_PASSWORD}
     volumes:
       - ./dags:/app/airflow/dags
       - ./data:/app/airflow/data
       - ./logs:/app/airflow/logs
       - ./dbt_social_media_tracker:/app/airflow/dbt_social_media_tracker
       - /home/florent.bossart/.gcp_keys:/app/airflow/.gcp_keys
-
+      - ./data_pipeline:/app/data_pipeline
 
   webserver:
-    build: .
+    build:
+      context: .
     command: poetry run scripts/entrypoint.sh
     restart: on-failure
     depends_on:
@@ -53,10 +61,17 @@ services:
       - POSTGRES_DB=db
       - POSTGRES_PASSWORD=$POSTGRES_PASSWORD
       - POSTGRES_USER=airflow
+      - PYTHONPATH=/app:/app/data_pipeline
+      - WAREHOUSE_HOST=${WAREHOUSE_HOST}
+      - WAREHOUSE_PORT=${WAREHOUSE_PORT}
+      - WAREHOUSE_DB=${WAREHOUSE_DB}
+      - WAREHOUSE_USER=${WAREHOUSE_USER}
+      - WAREHOUSE_PASSWORD=${WAREHOUSE_PASSWORD}
     volumes:
       - ./dags:/app/airflow/dags
       - ./data:/app/airflow/data
       - ./logs:/app/airflow/logs
+      - ./data_pipeline:/app/data_pipeline
     ports:
       - "8080:8080"
     healthcheck:
@@ -72,7 +87,7 @@ services:
       - POSTGRES_USER=dbt
       - POSTGRES_PASSWORD=${DBT_DB_PASSWORD}
     volumes:
-      - ./data_warehouse:/var/lib/postgresql/data
+      - warehousedata:/var/lib/postgresql/data
     ports:
       - "5434:5432"
     healthcheck:
@@ -81,7 +96,6 @@ services:
       retries: 5
     restart: always
 
-  # fast API used for testing
   smt_api:
     build:
       context: .
@@ -96,3 +110,19 @@ services:
       - ./data:/app/data
     depends_on:
       - social_media_tracker_db
+
+  dbt:
+    image: ghcr.io/dbt-labs/dbt-postgres:latest
+    environment:
+      DBT_DB_PASSWORD: ${DBT_DB_PASSWORD}
+      DBT_PROFILES_DIR: /usr/app/dbt_social_media_tracker
+    volumes:
+      - ./dbt_social_media_tracker:/usr/app/dbt_social_media_tracker
+    working_dir: /usr/app/dbt_social_media_tracker
+    depends_on:
+      - social_media_tracker_db
+    # entrypoint: [ "tail", "-f", "/dev/null" ] # Keeps the container running for exec, or change for CLI usage
+
+volumes:
+  pgdata:
+  warehousedata:

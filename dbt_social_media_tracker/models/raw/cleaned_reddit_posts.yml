@@ -1,0 +1,30 @@
+version: 2
+
+models:
+  - name: cleaned_reddit_posts
+    description: >
+      Reddit posts with cleaned and normalized fields, extracted URLs, and text features for downstream analytics and LLM/AI processing.
+    columns:
+      - name: id
+        description: The unique ID of the Reddit post.
+        tests:
+          - not_null
+          - unique
+      - name: url_canonical
+        description: canonical url used to add post ids in comments, to then join on IDs instead of URL
+      - name: title_clean
+        description: Lowercased and trimmed title of the post.
+      - name: author_clean
+        description: Lowercased and trimmed author name.
+      - name: selftext
+        description: The original Reddit post text, including URLs.
+      - name: selftext_clean
+        description: Reddit post text, lowercased and cleaned of URLs and special characters, for LLM/AI consumption.
+      - name: selftext_urls
+        description: Array of all URLs extracted from selftext.
+      - name: selftext_urls_csv
+        description: Comma-separated string of all URLs extracted from selftext.
+      - name: created_utc_fmt
+        description: Post creation formated timestamp (UTC).
+      - name: fetch_date
+        description: Date the post was fetched/ingested.

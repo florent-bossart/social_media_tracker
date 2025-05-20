@@ -4,15 +4,17 @@
 [DONE]
 Docker compose for DBT, AIRFLOW, POSTGRES Database, FastAPI container to query youtube and reddit easily
 Built API query logic + file generation
+Built json to postgres load + Airflow dags
+Started playing with DBT/do some data cleaning
+
 
 [NEXT]
 Keep running the data extraction manually for a few days to have enough data to work with
-Initiate database schema
-Initial load of the raw data / build Integration Pipeline
+Keep Improving Transformation Pipeline / clean/enrich data with DBT
+Add additional data extraction to get latest video comments and likes.
 
 [LATER]
 Test different LLM to detect trends
-Build Transformation Pipeline
 Define PROD data model, to be able to start working on dashboards
 Write DAGS for full orchestration
 Finalise Dashboards
@@ -128,5 +130,5 @@ The pipeline will be orchestrated using **Airflow**, and data transformation wil
 - [x] Define target hashtags/topics
 - [ ] Set up GitHub repository and CI/CD (GitHub Actions)
 - [ ] Prepare project demo video or presentation slides
-- [ ] (Optional) Add Docker Compose for full project deployment
+- [x] (Optional) Add Docker Compose for full project deployment
 - [ ] Write blog post or LinkedIn article about the project 🚀

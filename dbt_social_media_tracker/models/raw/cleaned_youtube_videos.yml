@@ -1,0 +1,34 @@
+version: 2
+
+models:
+  - name: cleaned_youtube_videos
+    description: "YouTube videos with cleaned text fields and original video_id as join key."
+    columns:
+      - name: video_pk
+        description: "Internal integer primary key for the video row."
+        tests:
+          - not_null
+          - unique
+      - name: video_id
+        description: "YouTube video ID, used as join key."
+        tests:
+          - not_null
+          - unique
+      - name: title_clean
+        description: "Lowercased, trimmed video title."
+      - name: channel_title_clean
+        description: "Lowercased, trimmed channel title."
+      - name: published_at
+        description: "Original YouTube video publication timestamp."
+      - name: view_count
+        description: "YouTube-reported view count."
+      - name: like_count
+        description: "YouTube-reported like count."
+      - name: comment_count
+        description: "YouTube-reported comment count."
+      - name: duration_seconds
+        description: "Duration of the video in seconds."
+      - name: keyword_clean
+        description: "Lowercased, trimmed keyword used for search or collection."
+      - name: fetch_date
+        description: "Date when the video record was fetched."
