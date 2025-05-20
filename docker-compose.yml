@@ -6,11 +6,7 @@ services:
       - POSTGRES_PASSWORD=$POSTGRES_PASSWORD
       - POSTGRES_USER=airflow
     volumes:
-<<<<<<< HEAD
       - pgdata:/var/lib/postgresql/data
-=======
-      - ./database/:/var/lib/postgresql/data
->>>>>>> a1d0bee8fb0f8f41024243a6eb16e9e9547e8567
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -d db -U airflow || exit 1"]
       interval: 15s
@@ -20,12 +16,8 @@ services:
     restart: always
 
   scheduler:
-<<<<<<< HEAD
     build:
       context: .
-=======
-    build: .
->>>>>>> a1d0bee8fb0f8f41024243a6eb16e9e9547e8567
     command: poetry run airflow scheduler
     restart: on-failure
     healthcheck:
@@ -40,33 +32,23 @@ services:
       - AIRFLOW__CORE__EXECUTOR=LocalExecutor
       - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:$POSTGRES_PASSWORD@postgres:5432/db
       - AIRFLOW__CORE__LOAD_EXAMPLES=false
-<<<<<<< HEAD
       - PYTHONPATH=/app:/app/data_pipeline
       - WAREHOUSE_HOST=${WAREHOUSE_HOST}
       - WAREHOUSE_PORT=${WAREHOUSE_PORT}
       - WAREHOUSE_DB=${WAREHOUSE_DB}
       - WAREHOUSE_USER=${WAREHOUSE_USER}
       - WAREHOUSE_PASSWORD=${WAREHOUSE_PASSWORD}
-=======
->>>>>>> a1d0bee8fb0f8f41024243a6eb16e9e9547e8567
     volumes:
       - ./dags:/app/airflow/dags
       - ./data:/app/airflow/data
       - ./logs:/app/airflow/logs
       - ./dbt_social_media_tracker:/app/airflow/dbt_social_media_tracker
       - /home/florent.bossart/.gcp_keys:/app/airflow/.gcp_keys
-<<<<<<< HEAD
       - ./data_pipeline:/app/data_pipeline
 
   webserver:
     build:
       context: .
-=======
-
-
-  webserver:
-    build: .
->>>>>>> a1d0bee8fb0f8f41024243a6eb16e9e9547e8567
     command: poetry run scripts/entrypoint.sh
     restart: on-failure
     depends_on:
@@ -79,23 +61,17 @@ services:
       - POSTGRES_DB=db
       - POSTGRES_PASSWORD=$POSTGRES_PASSWORD
       - POSTGRES_USER=airflow
-<<<<<<< HEAD
       - PYTHONPATH=/app:/app/data_pipeline
       - WAREHOUSE_HOST=${WAREHOUSE_HOST}
       - WAREHOUSE_PORT=${WAREHOUSE_PORT}
       - WAREHOUSE_DB=${WAREHOUSE_DB}
       - WAREHOUSE_USER=${WAREHOUSE_USER}
       - WAREHOUSE_PASSWORD=${WAREHOUSE_PASSWORD}
-=======
->>>>>>> a1d0bee8fb0f8f41024243a6eb16e9e9547e8567
     volumes:
       - ./dags:/app/airflow/dags
       - ./data:/app/airflow/data
       - ./logs:/app/airflow/logs
-<<<<<<< HEAD
       - ./data_pipeline:/app/data_pipeline
-=======
->>>>>>> a1d0bee8fb0f8f41024243a6eb16e9e9547e8567
     ports:
       - "8080:8080"
     healthcheck:
@@ -111,11 +87,7 @@ services:
       - POSTGRES_USER=dbt
       - POSTGRES_PASSWORD=${DBT_DB_PASSWORD}
     volumes:
-<<<<<<< HEAD
       - warehousedata:/var/lib/postgresql/data
-=======
-      - ./data_warehouse:/var/lib/postgresql/data
->>>>>>> a1d0bee8fb0f8f41024243a6eb16e9e9547e8567
     ports:
       - "5434:5432"
     healthcheck:
@@ -124,10 +96,6 @@ services:
       retries: 5
     restart: always
 
-<<<<<<< HEAD
-=======
-  # fast API used for testing
->>>>>>> a1d0bee8fb0f8f41024243a6eb16e9e9547e8567
   smt_api:
     build:
       context: .
@@ -142,7 +110,6 @@ services:
       - ./data:/app/data
     depends_on:
       - social_media_tracker_db
-<<<<<<< HEAD
 
   dbt:
     image: ghcr.io/dbt-labs/dbt-postgres:latest
@@ -159,5 +126,3 @@ services:
 volumes:
   pgdata:
   warehousedata:
-=======
->>>>>>> a1d0bee8fb0f8f41024243a6eb16e9e9547e8567
