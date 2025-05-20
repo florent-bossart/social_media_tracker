@@ -5,8 +5,15 @@ dbt_social_media_tracker:
       type: postgres
       host: social_media_tracker_db  # Use service name, not localhost
       user: dbt
+<<<<<<< HEAD
       password: "{{ env_var('DBT_DB_PASSWORD') }}"
       port: 5432  # Inside Docker network
       dbname: social_db
       schema: raw
+=======
+      password: ${DBT_DB_PASSWORD}
+      port: 5432  # Inside Docker network
+      dbname: social_db
+      schema: analytics
+>>>>>>> a1d0bee8fb0f8f41024243a6eb16e9e9547e8567
       threads: 4
