@@ -1,1 +1,19 @@
 docker compose run --rm --entrypoint bash dbt
+
+
+
+# install llm :
+poetry add transformers sentencepiece torch
+poetry add spacy
+poetry add bertopic umap-learn hdbscan sentence-transformers
+poetry add torch transformers
+poetry add ginza ja-ginza
+
+
+# download models
+poetry run python -m spacy download en_core_web_sm
+
+
+install ollama
+ollama pull llama3
+ollama pull mistral
