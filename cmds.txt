@@ -1,4 +1,11 @@
+# dbt
+docker compose stop dbt
+docker compose build dbt
+docker compose up -d dbt
+
+
 docker compose run --rm --entrypoint bash dbt
+dbt run
 
 
 
