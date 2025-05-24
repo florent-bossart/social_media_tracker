@@ -1,4 +1,4 @@
-FROM python:3.12.10-slim
+FROM python:3.10-slim
 
 ARG DEBIAN_FRONTEND=noninteractive
 
@@ -9,8 +9,16 @@ ENV POETRY_VIRTUALENVS_CREATE=false
 
 WORKDIR /app
 
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    gcc \
+    libpq-dev \
+    python3-dev \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
 # Copy pyproject and install dependencies
-COPY pyproject.toml poetry.lock ./
+COPY ./api/pyproject.toml ./api/poetry.lock ./
 
 RUN pip3 install --upgrade --no-cache-dir pip \
     && pip3 install poetry \

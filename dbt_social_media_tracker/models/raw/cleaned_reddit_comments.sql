@@ -9,7 +9,7 @@
 WITH posts AS (
     SELECT
         post_id,
-        url_canonical
+        post_url
     FROM {{ ref('cleaned_reddit_posts') }}
 )
 
@@ -23,4 +23,10 @@ SELECT
     TO_CHAR(c.fetch_date, 'YYYY-MM-DD') AS fetch_date_fmt
 FROM {{ source('raw', 'reddit_comments') }} c
 LEFT JOIN posts p
-    ON LOWER(TRIM(c.post_url)) = p.url_canonical
+    ON c.post_url = p.post_url
+WHERE
+  1=1
+  AND c.body IS NOT NULL
+  AND TRIM(c.body) != ''
+  AND c.body NOT LIKE '%[deleted]%'
+  AND c.body NOT LIKE '%[removed]%'

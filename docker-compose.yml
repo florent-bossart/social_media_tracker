@@ -38,6 +38,7 @@ services:
       - WAREHOUSE_DB=${WAREHOUSE_DB}
       - WAREHOUSE_USER=${WAREHOUSE_USER}
       - WAREHOUSE_PASSWORD=${WAREHOUSE_PASSWORD}
+      - DBT_DB_PASSWORD=${DBT_DB_PASSWORD}
     volumes:
       - ./dags:/app/airflow/dags
       - ./data:/app/airflow/data
@@ -45,6 +46,7 @@ services:
       - ./dbt_social_media_tracker:/app/airflow/dbt_social_media_tracker
       - /home/florent.bossart/.gcp_keys:/app/airflow/.gcp_keys
       - ./data_pipeline:/app/data_pipeline
+      - /var/run/docker.sock:/var/run/docker.sock
 
   webserver:
     build:
@@ -67,11 +69,13 @@ services:
       - WAREHOUSE_DB=${WAREHOUSE_DB}
       - WAREHOUSE_USER=${WAREHOUSE_USER}
       - WAREHOUSE_PASSWORD=${WAREHOUSE_PASSWORD}
+      - DBT_DB_PASSWORD=${DBT_DB_PASSWORD}
     volumes:
       - ./dags:/app/airflow/dags
       - ./data:/app/airflow/data
       - ./logs:/app/airflow/logs
       - ./data_pipeline:/app/data_pipeline
+      - /var/run/docker.sock:/var/run/docker.sock
     ports:
       - "8080:8080"
     healthcheck:
@@ -117,7 +121,7 @@ services:
       DBT_DB_PASSWORD: ${DBT_DB_PASSWORD}
       DBT_PROFILES_DIR: /usr/app/dbt_social_media_tracker
     volumes:
-      - ./dbt_social_media_tracker:/usr/app/dbt_social_media_tracker
+      - /home/florent.bossart/code/florent-bossart/social_media_tracker/dbt_social_media_tracker:/usr/app/dbt_social_media_tracker
     working_dir: /usr/app/dbt_social_media_tracker
     depends_on:
       - social_media_tracker_db

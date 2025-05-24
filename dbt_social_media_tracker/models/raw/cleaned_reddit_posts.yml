@@ -10,8 +10,8 @@ models:
         tests:
           - not_null
           - unique
-      - name: url_canonical
-        description: canonical url used to add post ids in comments, to then join on IDs instead of URL
+      - name: post_url
+        description: url used to add post ids in comments, to then join on IDs instead of URL
       - name: title_clean
         description: Lowercased and trimmed title of the post.
       - name: author_clean
