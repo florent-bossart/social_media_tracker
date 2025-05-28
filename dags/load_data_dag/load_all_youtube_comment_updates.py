@@ -28,7 +28,7 @@ with DAG(
     schedule_interval=None,  # Set to desired schedule
     start_date=datetime(2024, 1, 1),
     catchup=False,
-    tags=["youtube", "comment_updates", "warehouse"]
+    tags=["youtube", "comment_updates", "warehouse", "full"]
 ) as dag:
     run_loader = PythonOperator(
         task_id="load_all_comment_updates",

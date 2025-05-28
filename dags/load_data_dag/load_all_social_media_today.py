@@ -19,7 +19,8 @@ with DAG(
     start_date=datetime(2024, 5, 1),
     schedule_interval=None,
     catchup=False,
-    description="Loads both Reddit and YouTube data for current execution date"
+    description="Loads both Reddit and YouTube data for current execution date",
+    tags=["social_media", "raw", "warehouse", "Daily"]
 ) as dag:
     init_db_task = PythonOperator(
         task_id="init_db",

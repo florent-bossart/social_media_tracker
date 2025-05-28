@@ -14,7 +14,8 @@ with DAG(
     start_date=datetime(2024, 5, 1),
     schedule_interval=None,
     catchup=False,
-    description="Triggers the Reddit daily fetch API"
+    description="Triggers the Reddit daily fetch API",
+    tags=["reddit", "daily", "fetch", "api"]
 ) as dag:
     PythonOperator(
         task_id="trigger_reddit_daily_api",
