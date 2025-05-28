@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-DATA_DIR = Path("/app/data")  # Adjust this to your base directory
+DATA_DIR = Path(__file__).parent.parent / "data"
 TRACK_FILE = DATA_DIR / "fetched_data.json"
 
 # Ensure the directory exists

@@ -22,7 +22,7 @@ from .track_fetched_data import (
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
 youtube = build("youtube", "v3", developerKey=YOUTUBE_API_KEY)
 
-DATA_DIR = Path("/app/data/youtube")
+DATA_DIR = Path(__file__).parent.parent / "data" / "youtube"
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 LOGS_DIR = Path("../logs")  # Directory for request logs
@@ -138,7 +138,14 @@ def fetch_video_details(video_ids: List[str], query: str, fetch_date: str) -> Li
 
 # Function to fetch comments for a given video ID
 # and return a list of dictionaries containing the comments.
-def fetch_video_comments(video_id: str) -> List[dict]:
+def fetch_video_comments(video_id: str) -> list:
+    """Fetch new comments for a video, skipping deleted or disabled-comment videos.
+
+    Returns:
+        List of new comment dicts.
+    Raises:
+        RuntimeError with a descriptive error message for known API errors.
+    """
     max_cost_per_request = 1  # Each comment request costs 1
     suggested_cost = quota.optimize_usage(max_cost_per_request)
     if not quota.can_use(suggested_cost):
@@ -155,7 +162,6 @@ def fetch_video_comments(video_id: str) -> List[dict]:
         )
         response = request.execute()
 
-        # Extract comment IDs and full comment details
         comment_details = [
             {
                 "id": item["snippet"]["topLevelComment"]["id"],
@@ -167,16 +173,36 @@ def fetch_video_comments(video_id: str) -> List[dict]:
         ]
         comment_ids = [comment["id"] for comment in comment_details]
 
-        # Track only comment IDs
         existing_comment_ids = get_fetched_comment_ids(video_id)
         new_comment_ids = [cid for cid in comment_ids if cid not in existing_comment_ids]
         add_fetched_comment_ids(video_id, new_comment_ids)
 
-        # Return full details for processing (e.g., saving snapshots)
         return [comment for comment in comment_details if comment["id"] in new_comment_ids]
+
     except HttpError as e:
-        print(f"Failed to fetch comments for video {video_id}: {e}")
-        return []
+        # Decode error
+        try:
+            error_details = e.error_details if hasattr(e, "error_details") else None
+            if not error_details and hasattr(e, "content"):
+                import json
+                error_details = json.loads(e.content.decode())
+        except Exception:
+            error_details = None
+
+        # Default message
+        err_msg = f"Failed to fetch comments for video {video_id}: {e}"
+        # Try to extract YouTube-specific error reason
+        if error_details and "error" in error_details and "errors" in error_details["error"]:
+            reason = error_details["error"]["errors"][0].get("reason")
+            if reason == "videoNotFound":
+                raise RuntimeError(f"videoNotFound: {video_id}")
+            elif reason == "commentsDisabled":
+                raise RuntimeError(f"commentsDisabled: {video_id}")
+            elif reason == "processingFailure":
+                raise RuntimeError(f"processingFailure: {video_id}")
+            else:
+                raise RuntimeError(f"{reason}: {video_id}")
+        raise RuntimeError(err_msg)
 
 
 # Function to search for YouTube videos based on a query,

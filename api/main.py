@@ -6,6 +6,8 @@ from .youtube import search_and_fetch_video_data, save_video_snapshot, save_comm
 from .youtube_quota import quota
 from .reddit import fetch_reddit_posts_daily
 from .reddit_init import fetch_reddit_posts_full
+from .updates_youtube_comments_from_fetched import update_comments_from_fetched_rotating
+
 
 
 import random
@@ -154,3 +156,8 @@ def get_reddit_full_data():
         "fetched_at": fetch_date,
         "results": all_results
     }
+
+
+@app.post("/update_youtube_comments_from_fetched_rotating")
+def trigger_update_youtube_comments_from_fetched_rotating():
+    return update_comments_from_fetched_rotating()
