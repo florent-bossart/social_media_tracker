@@ -22,6 +22,7 @@ metadata = MetaData()
 
 def ensure_raw_schema(conn):
     conn.execute(sql_text("CREATE SCHEMA IF NOT EXISTS raw;"))
+    conn.commit()
 
 reddit_posts = Table(
     "reddit_posts", metadata,
