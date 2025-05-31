@@ -77,7 +77,32 @@ SEARCH_KEYWORDS = [
     "Vtuber 音楽",         # "Vtuber music" - Focuses on music by virtual YouTubers, a growing trend.
     "日本 ロック 新曲",     # "Japanese rock new releases" - Explores the rock genre in Japan.
     "インディーズ 音楽 日本", # "Japanese indie music" - Targets indie music to discover emerging artists and non-mainstream trends.
-    "和楽器バンド"          # "Wagakki Band" - Focuses on a specific band that combines traditional Japanese instruments with modern rock, helping discover similar fusion music.
+    "和楽器バンド",          # "Wagakki Band" - Focuses on a specific band that combines traditional Japanese instruments with modern rock, helping discover similar fusion music.
+    "ボカロ 新曲",          # "Vocaloid new songs" - New Vocaloid releases
+    "J-Rock 2025",         # Japanese rock music for 2025
+    "シティポップ",         # "City Pop" - Popular Japanese music genre
+    "アイドル 音楽",        # "Idol music" - Japanese idol music
+    "日本語ラップ",         # "Japanese rap" - Japanese hip-hop/rap music
+    "エレクトロニカ 日本",   # "Japanese electronica" - Electronic music from Japan
+    "フォーク 日本",        # "Japanese folk" - Japanese folk music
+    "メタル 日本",          # "Japanese metal" - Japanese metal music
+    "ジャズ 日本",          # "Japanese jazz" - Japanese jazz music
+    "クラシック 日本",      # "Japanese classical" - Japanese classical music
+    "アンビエント 日本",    # "Japanese ambient" - Japanese ambient music
+    "実験音楽 日本",        # "Japanese experimental music" - Japanese experimental music
+    # Additional high-value keywords for broader coverage
+    "音楽 2025 日本",       # "Music 2025 Japan" - Year-specific search
+    "J-pop cover",         # Cover versions often have high engagement
+    "日本 バンド 2025",     # "Japanese bands 2025" - Band-focused search
+    "アコースティック 日本", # "Japanese acoustic" - Acoustic music genre
+    "インストゥルメンタル 日本", # "Japanese instrumental" - Instrumental music
+    "コラボ 音楽 日本",     # "Music collaboration Japan" - Collaborative works
+    "リミックス 日本",      # "Japanese remix" - Remix versions
+    "カバー曲 日本",        # "Japanese cover songs" - Cover songs
+    "オリジナル曲",        # "Original songs" - Original compositions
+    "新人アーティスト",     # "New artists" - Emerging artists
+    "話題の曲",            # "Trending songs" - Popular/viral songs
+    "MVランキング",        # "Music video ranking" - Popular music videos
 ]
 
 

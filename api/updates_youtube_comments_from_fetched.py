@@ -21,7 +21,7 @@ DATA_FILE = DATA_ROOT / "fetched_data.json"
 ROTATION_STATE_FILE = YOUTUBE_ROOT / "comments_rotation_position.json"
 OUTPUT_DIR = COMMENT_UPDATES_ROOT
 
-QUOTA_BUFFER = 10  # stop with 10 quota left as a safety buffer
+QUOTA_BUFFER = 5  # Reduced buffer from 10 to 5 for maximum quota usage
 
 def load_video_ids(data_file):
     with open(data_file, "r", encoding="utf-8") as f:

@@ -1,0 +1,15 @@
+version: 2
+
+sources:
+  - name: analytics # This is the source name we'll use in ref() or source()
+    schema: analytics # This is the actual schema in your database
+    tables:
+      - name: entity_extraction
+      - name: sentiment_analysis
+      - name: artist_trends
+      - name: genre_trends
+      - name: temporal_trends
+      - name: trend_summaries
+      - name: summarization_metrics
+      - name: insights_summaries
+      - name: trend_analysis

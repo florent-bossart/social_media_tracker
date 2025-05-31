@@ -3,6 +3,7 @@ import pandas as pd
 from sqlalchemy import create_engine, text
 from dotenv import load_dotenv
 from datetime import datetime
+import csv
 
 # Remove dotenv in Docker-based Airflow
 # from dotenv import load_dotenv
@@ -31,7 +32,7 @@ def extract_to_csv(sql, outfile):
         result = conn.execute(text("SELECT 1"))
         print(result.fetchone())
         df = pd.read_sql(sql, conn)
-    df.to_csv(output_path, index=False)
+    df.to_csv(output_path, index=False, quoting=csv.QUOTE_NONNUMERIC)
     print(f"Wrote {len(df)} rows to {output_path}")
 
 if __name__ == "__main__":

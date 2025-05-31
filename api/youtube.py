@@ -79,18 +79,18 @@ def search_youtube_videos(query: str, max_results: int = 10) -> List[str]:
         raise RuntimeError("Quota exceeded or not enough quota left for this request.")
 
     now = datetime.now(timezone.utc)
-    one_month_ago = now - timedelta(days=30)
+    two_months_ago = now - timedelta(days=60)  # Extended from 30 to 60 days for more content
     # Perform the search using the YouTube Data API
     request = youtube.search().list(
         order="date",
-        publishedAfter=one_month_ago.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        publishedAfter=two_months_ago.strftime("%Y-%m-%dT%H:%M:%SZ"),
         publishedBefore= now.strftime("%Y-%m-%dT%H:%M:%SZ"),
         q=query,
         part="id",
         type="video",
         maxResults=max_results,
         regionCode="JP",
-        videoDuration="medium",
+        videoDuration="any",  # Changed from "medium" to "any" for more variety
         relevanceLanguage="ja"
     )
     response = request.execute()
@@ -138,8 +138,12 @@ def fetch_video_details(video_ids: List[str], query: str, fetch_date: str) -> Li
 
 # Function to fetch comments for a given video ID
 # and return a list of dictionaries containing the comments.
-def fetch_video_comments(video_id: str) -> list:
+def fetch_video_comments(video_id: str, max_comments: int = 100) -> list:
     """Fetch new comments for a video, skipping deleted or disabled-comment videos.
+
+    Args:
+        video_id: The YouTube video ID
+        max_comments: Maximum number of comments to fetch (default: 100, max: 100)
 
     Returns:
         List of new comment dicts.
@@ -157,7 +161,7 @@ def fetch_video_comments(video_id: str) -> list:
         request = youtube.commentThreads().list(
             part="snippet",
             videoId=video_id,
-            maxResults=100,
+            maxResults=min(max_comments, 100),  # YouTube API max is 100
             order="time"
         )
         response = request.execute()
@@ -210,7 +214,7 @@ def fetch_video_comments(video_id: str) -> list:
 def search_and_fetch_video_data(query: str):
     fetch_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
-    video_ids = search_youtube_videos(query)
+    video_ids = search_youtube_videos(query, max_results=50)
 
     # Filter out already fetched videos
     video_ids = [id for id in video_ids if id not in get_fetched_videos()]
