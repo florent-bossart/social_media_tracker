@@ -7,7 +7,7 @@
     ]
 ) }}
 
-SELECT
+SELECT distinct
     id AS video_pk,
     video_id,
     LOWER(TRIM(title)) AS title_clean,

@@ -6,18 +6,26 @@ Docker compose for DBT, AIRFLOW, POSTGRES Database, FastAPI container to query y
 Built API query logic + file generation
 Built json to postgres load + Airflow dags
 Started playing with DBT/do some data cleaning
+Test different LLM to detect trends
+Define PROD data model
+Write DAGS for full orchestration
+Added LLM using laptop GPU + tunneling (program still triggered from the VM)
+  - Entity extraction is working - ~6 hours for reddit extraction
+  - sentiment analysis - 6 hours youtube / 18hours reddit
+  - Trend detection - TBD
+  - Summarization - TBD
+Added DBT transformation using
 
 
 [NEXT]
-Keep running the data extraction manually for a few days to have enough data to work with
-Keep Improving Transformation Pipeline / clean/enrich data with DBT
-Add additional data extraction to get latest video comments and likes.
+Clean the code base
+Test Trend and Summarization
+Adapt final data model if needed.
+add streamlit + build dashboard
+
 
 [LATER]
-Test different LLM to detect trends
-Define PROD data model, to be able to start working on dashboards
-Write DAGS for full orchestration
-Finalise Dashboards
+Work on presentation
 
 [ENHANCEMENTS]
 Add logging
@@ -41,7 +49,6 @@ The pipeline will be orchestrated using **Airflow**, and data transformation wil
 - ✅ Data transformation and modeling with DBT
 - ✅ Natural Language Processing (Sentiment Analysis)
 - ✅ Interactive dashboard for stakeholders
-- ✅ (Optional) Alerts for trends and pipeline failures
 
 ---
 
@@ -54,36 +61,37 @@ The pipeline will be orchestrated using **Airflow**, and data transformation wil
 
 ### 1. Data Collection
 **Sources:**
-- Twitter/X (API v2, filtered stream or search API)
+- Youtube API
 - Reddit (PRAW or Pushshift API)
-- (Optional) RSS feeds from news aggregators
 
 **Method:**
 - Python scripts as Airflow tasks to extract posts containing target keywords/hashtags.
 
 ### 2. Data Storage
-- Local **Postgres** database (Dockerized recommended).
+- Dockerized  **Postgres** database.
 - Design raw and staging tables for DBT transformations.
 
 ### 3. Data Transformation (DBT)
 - Clean text data: remove noise (hashtags, URLs, emojis, etc.).
 - Build models:
-  - Cleaned posts
-  - Aggregated sentiments over time (daily/hourly)
-  - Trending hashtags and topics
+  - Translation JP to EN (youtube only)
+  - Entity Extraction
+  - Sentiment Analysis
+  - Trend detection
+  - Summarization
 
-### 4. Sentiment Analysis
+### 4. Models
 - Open-source libraries:
-  - `TextBlob` (simple, no-cost)
-  - `VADER` (for social media-specific sentiment)
-  - (Optional) HuggingFace models for advanced analysis
-- Append sentiment scores to your transformed data.
+  - Translation JP to EN (youtube only) => MARIANMT
+  - Entity Extraction => OLLAMA
+  - Sentiment Analysis => OLLAMA
+  - Trend detection => OLLAMA
+  - Summarization => OLLAMA
 
 ### 5. Workflow Orchestration (Airflow)
 - Automate the pipeline:
-  - Extract → Load → Transform → Analyze
-  - Schedule hourly or daily
-  - Add alerting on pipeline failure (email/Slack)
+  - Extract → Load → Transform (DBT) → Transform (Python/LLM) → Load  → Analyze
+  - Schedule  daily
 
 ### 6. Visualization
 - Build a **dashboard** to display:
@@ -92,19 +100,17 @@ The pipeline will be orchestrated using **Airflow**, and data transformation wil
   - Positive/negative sentiment spikes
 - Tools:
   - Streamlit (Python-friendly)
-  - Or Metabase / Superset (SQL-based dashboards)
+
 
 ### 7. Optional Enhancements (Bonus 🚀)
 - **Trend Detection:** Simple anomaly detection for spikes.
-- **Geo Analysis:** If location data is available.
-- **Alerts:** Daily digest of trending topics via email/Slack.
 - **Dockerization:** Containerize the entire project for portability.
 
 ---
 
 ## 📅 Timeline Suggestion
 
-| Week | Task |
+| Step | Task |
 |------|------|
 | **1** | Set up Airflow, Postgres, DBT, connect APIs |
 | **2** | Build ETL pipeline, store raw data, basic transformations |

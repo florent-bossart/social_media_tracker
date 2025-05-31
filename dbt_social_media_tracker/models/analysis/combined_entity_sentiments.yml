@@ -1,0 +1,49 @@
+version: 2
+
+models:
+  - name: combined_entity_sentiments
+    description: "Combines entity extractions with their corresponding sentiment analyses. This provides a unified view of what entities (artists, songs, genres) were mentioned and the sentiment associated with those mentions."
+    columns:
+      - name: entity_extraction_id
+        description: "Unique identifier for the entity extraction record."
+        tests:
+          - unique  # Assuming each row in the final model should be unique by this
+          - not_null
+      - name: source_platform
+        description: "The platform from which the original text was sourced (e.g., YouTube, Reddit)."
+      - name: original_text
+        description: "The original text content from which entities were extracted and sentiment was analyzed."
+      - name: extraction_date
+        description: "Date when the entity extraction was performed."
+      - name: entity_confidence_score
+        description: "Confidence score of the entity extraction process."
+      - name: entities_artists
+        description: "Array or list of artists extracted from the text."
+      - name: entities_artists_count
+        description: "Count of artists extracted."
+      - name: entities_songs
+        description: "Array or list of songs extracted from the text."
+      - name: entities_songs_count
+        description: "Count of songs extracted."
+      - name: entities_genres
+        description: "Array or list of genres extracted from the text."
+      - name: entities_genres_count
+        description: "Count of genres extracted."
+      - name: sentiment_analysis_id
+        description: "Unique identifier for the sentiment analysis record. Can be null if no corresponding sentiment analysis was found."
+      - name: sentiment_score
+        description: "Numerical score representing the sentiment (e.g., from -1 to 1)."
+      - name: sentiment_label
+        description: "Categorical label for the sentiment (e.g., positive, negative, neutral)."
+      - name: sentiment_reasoning
+        description: "Explanation or reasoning behind the sentiment classification."
+      - name: artist_sentiment
+        description: "Specific sentiment breakdown related to artists mentioned."
+      - name: genre_sentiment
+        description: "Specific sentiment breakdown related to genres mentioned."
+      - name: sentiment_overall
+        description: "Overall sentiment determined for the text."
+      - name: sentiment_confidence_score
+        description: "Confidence score of the sentiment analysis."
+      - name: sentiment_analysis_date
+        description: "Date when the sentiment analysis was performed."

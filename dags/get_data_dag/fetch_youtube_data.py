@@ -14,7 +14,8 @@ with DAG(
     start_date=datetime(2024, 5, 1),
     schedule_interval=None,
     catchup=False,
-    description="Triggers the YouTube data fetch API"
+    description="Triggers the YouTube data fetch API",
+    tags=["youtube", "fetch", "api"]
 ) as dag:
     PythonOperator(
         task_id="trigger_youtube_api",

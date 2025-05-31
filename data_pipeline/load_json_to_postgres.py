@@ -22,6 +22,7 @@ metadata = MetaData()
 
 def ensure_raw_schema(conn):
     conn.execute(sql_text("CREATE SCHEMA IF NOT EXISTS raw;"))
+    conn.commit()
 
 reddit_posts = Table(
     "reddit_posts", metadata,
@@ -267,6 +268,70 @@ def load_all_files(conn):
 def load_all_files_for_date(date_str, conn):
     load_reddit_files_for_date(date_str, conn)
     load_youtube_files_for_date(date_str, conn)
+
+
+def load_youtube_comment_update_file(json_path, conn, keyword=None, fetch_date=None):
+    """
+    Load a new_comments_YYYY-MM-DD.json file from YouTube comment updates into the youtube_comments table.
+
+    Args:
+        json_path (str or Path): Path to the JSON file.
+        conn: SQLAlchemy connection.
+        keyword (str, optional): If provided, sets the 'keyword' column for all rows. Otherwise NULL.
+        fetch_date (str, optional): If provided, sets the 'fetch_date' column for all rows (YYYY-MM-DD).
+                                    Otherwise tries to parse from filename.
+    """
+    json_path = Path(json_path)
+    # Try to infer fetch_date if not provided
+    if fetch_date is None:
+        import re
+        m = re.search(r'(\d{4}-\d{2}-\d{2})', str(json_path))
+        if m:
+            fetch_date = m.group(1)
+    # Keyword is not in file, so set to None or provide one explicitly
+
+    with open(json_path, "r", encoding="utf-8") as f:
+        comments = json.load(f)
+        for com in comments:
+            comment_data = dict(
+                video_id=com.get("video_id"),
+                comment_id=com.get("id"),
+                text=com.get("text"),
+                author=com.get("author"),
+                published_at=com.get("published_at"),
+                keyword=keyword,
+                fetch_date=fetch_date
+            )
+            conn.execute(youtube_comments.insert().values(**comment_data))
+    print(f"Loaded {len(comments)} new comments from {json_path}")
+
+
+def load_all_youtube_comment_update_files(conn, folder="data/youtube/comment_updates"):
+    """
+    Loads all new_comments_*.json files in the comment_updates folder.
+    """
+    folder = Path(folder)
+    comment_files = sorted(folder.glob("new_comments_*.json"))
+    total_loaded = 0
+    for f in comment_files:
+        try:
+            load_youtube_comment_update_file(f, conn)
+            total_loaded += 1
+        except Exception as e:
+            print(f"Error loading {f}: {e}")
+    print(f"Loaded {total_loaded} comment update files from {folder}")
+
+def load_today_youtube_comment_update_file(conn, folder="data/youtube/comment_updates"):
+    """
+    Loads only today's new_comments_YYYY-MM-DD.json file.
+    """
+    today = datetime.utcnow().strftime("%Y-%m-%d")
+    file = Path(folder) / f"new_comments_{today}.json"
+    if file.exists():
+        load_youtube_comment_update_file(file, conn)
+        print(f"Loaded today's comment update file: {file}")
+    else:
+        print(f"No comment update file found for today: {file}")
 
 def get_engine():
     PG_USER = os.getenv("WAREHOUSE_USER")

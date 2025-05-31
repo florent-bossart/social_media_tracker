@@ -18,7 +18,8 @@ with DAG(
     start_date=datetime(2024, 5, 1),
     schedule_interval=None,
     catchup=False,
-    description="Loads only Reddit data"
+    description="Loads only Reddit data",
+    tags=["reddit", "raw", "warehouse", "full"]
 ) as dag:
     init_db_task = PythonOperator(
         task_id="init_db",

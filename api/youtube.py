@@ -22,7 +22,7 @@ from .track_fetched_data import (
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
 youtube = build("youtube", "v3", developerKey=YOUTUBE_API_KEY)
 
-DATA_DIR = Path("/app/data/youtube")
+DATA_DIR = Path(__file__).parent.parent / "data" / "youtube"
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 LOGS_DIR = Path("../logs")  # Directory for request logs
@@ -79,18 +79,18 @@ def search_youtube_videos(query: str, max_results: int = 10) -> List[str]:
         raise RuntimeError("Quota exceeded or not enough quota left for this request.")
 
     now = datetime.now(timezone.utc)
-    one_month_ago = now - timedelta(days=30)
+    two_months_ago = now - timedelta(days=60)  # Extended from 30 to 60 days for more content
     # Perform the search using the YouTube Data API
     request = youtube.search().list(
         order="date",
-        publishedAfter=one_month_ago.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        publishedAfter=two_months_ago.strftime("%Y-%m-%dT%H:%M:%SZ"),
         publishedBefore= now.strftime("%Y-%m-%dT%H:%M:%SZ"),
         q=query,
         part="id",
         type="video",
         maxResults=max_results,
         regionCode="JP",
-        videoDuration="medium",
+        videoDuration="any",  # Changed from "medium" to "any" for more variety
         relevanceLanguage="ja"
     )
     response = request.execute()
@@ -138,7 +138,18 @@ def fetch_video_details(video_ids: List[str], query: str, fetch_date: str) -> Li
 
 # Function to fetch comments for a given video ID
 # and return a list of dictionaries containing the comments.
-def fetch_video_comments(video_id: str) -> List[dict]:
+def fetch_video_comments(video_id: str, max_comments: int = 100) -> list:
+    """Fetch new comments for a video, skipping deleted or disabled-comment videos.
+
+    Args:
+        video_id: The YouTube video ID
+        max_comments: Maximum number of comments to fetch (default: 100, max: 100)
+
+    Returns:
+        List of new comment dicts.
+    Raises:
+        RuntimeError with a descriptive error message for known API errors.
+    """
     max_cost_per_request = 1  # Each comment request costs 1
     suggested_cost = quota.optimize_usage(max_cost_per_request)
     if not quota.can_use(suggested_cost):
@@ -150,12 +161,11 @@ def fetch_video_comments(video_id: str) -> List[dict]:
         request = youtube.commentThreads().list(
             part="snippet",
             videoId=video_id,
-            maxResults=100,
+            maxResults=min(max_comments, 100),  # YouTube API max is 100
             order="time"
         )
         response = request.execute()
 
-        # Extract comment IDs and full comment details
         comment_details = [
             {
                 "id": item["snippet"]["topLevelComment"]["id"],
@@ -167,16 +177,36 @@ def fetch_video_comments(video_id: str) -> List[dict]:
         ]
         comment_ids = [comment["id"] for comment in comment_details]
 
-        # Track only comment IDs
         existing_comment_ids = get_fetched_comment_ids(video_id)
         new_comment_ids = [cid for cid in comment_ids if cid not in existing_comment_ids]
         add_fetched_comment_ids(video_id, new_comment_ids)
 
-        # Return full details for processing (e.g., saving snapshots)
         return [comment for comment in comment_details if comment["id"] in new_comment_ids]
+
     except HttpError as e:
-        print(f"Failed to fetch comments for video {video_id}: {e}")
-        return []
+        # Decode error
+        try:
+            error_details = e.error_details if hasattr(e, "error_details") else None
+            if not error_details and hasattr(e, "content"):
+                import json
+                error_details = json.loads(e.content.decode())
+        except Exception:
+            error_details = None
+
+        # Default message
+        err_msg = f"Failed to fetch comments for video {video_id}: {e}"
+        # Try to extract YouTube-specific error reason
+        if error_details and "error" in error_details and "errors" in error_details["error"]:
+            reason = error_details["error"]["errors"][0].get("reason")
+            if reason == "videoNotFound":
+                raise RuntimeError(f"videoNotFound: {video_id}")
+            elif reason == "commentsDisabled":
+                raise RuntimeError(f"commentsDisabled: {video_id}")
+            elif reason == "processingFailure":
+                raise RuntimeError(f"processingFailure: {video_id}")
+            else:
+                raise RuntimeError(f"{reason}: {video_id}")
+        raise RuntimeError(err_msg)
 
 
 # Function to search for YouTube videos based on a query,
@@ -184,7 +214,7 @@ def fetch_video_comments(video_id: str) -> List[dict]:
 def search_and_fetch_video_data(query: str):
     fetch_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
-    video_ids = search_youtube_videos(query)
+    video_ids = search_youtube_videos(query, max_results=50)
 
     # Filter out already fetched videos
     video_ids = [id for id in video_ids if id not in get_fetched_videos()]

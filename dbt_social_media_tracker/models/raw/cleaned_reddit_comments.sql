@@ -7,13 +7,13 @@
  ) }}
 
 WITH posts AS (
-    SELECT
+    SELECT distinct
         post_id,
         post_url
     FROM {{ ref('cleaned_reddit_posts') }}
 )
 
-SELECT
+SELECT distinct
     c.id AS comment_id,
     p.post_id,  -- assigned post ID
     LOWER(TRIM(c.author)) AS author_clean,
@@ -30,3 +30,4 @@ WHERE
   AND TRIM(c.body) != ''
   AND c.body NOT LIKE '%[deleted]%'
   AND c.body NOT LIKE '%[removed]%'
+  and LOWER(TRIM(c.author)) NOT IN ('musicmirrorman','listige', 'chari_de_kita', 'remindmebot' ) -- bots accounts

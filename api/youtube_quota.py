@@ -2,7 +2,7 @@
 from datetime import datetime
 from pathlib import Path
 
-DAILY_QUOTA_LIMIT = 10000
+DAILY_QUOTA_LIMIT = 10000  # YouTube API daily quota limit
 LOGS_DIR = Path("../logs")
 LOGS_DIR.mkdir(parents=True, exist_ok=True)
 
