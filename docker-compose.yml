@@ -127,6 +127,27 @@ services:
       - social_media_tracker_db
     # entrypoint: [ "tail", "-f", "/dev/null" ] # Keeps the container running for exec, or change for CLI usage
 
+  streamlit_dashboard:
+    build:
+      context: .  # Reverted to project root
+      dockerfile: dashboard/Dockerfile  # Path relative to project root
+    ports:
+      - "8501:8501"
+    environment:
+      - WAREHOUSE_HOST=${WAREHOUSE_HOST}
+      - WAREHOUSE_PORT=${WAREHOUSE_PORT}
+      - WAREHOUSE_DB=${WAREHOUSE_DB}
+      - WAREHOUSE_USER=${WAREHOUSE_USER}
+      - WAREHOUSE_PASSWORD=${WAREHOUSE_PASSWORD}
+      # Add any other environment variables your Streamlit app might need
+    volumes:
+      - ./dashboard:/app/dashboard
+      - ./data:/app/data # If your dashboard needs to access local data files directly
+      # You might need to mount other directories if your dashboard script accesses them
+    depends_on:
+      - social_media_tracker_db # Ensures the database is ready before Streamlit starts
+    restart: always
+
 volumes:
   pgdata:
   warehousedata:

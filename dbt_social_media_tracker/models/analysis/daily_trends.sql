@@ -5,12 +5,12 @@ SELECT
     avg(ta.trend_strength) AS avg_trend_strength,
     count(
         CASE
-            WHEN ta.trend_direction = 'up' THEN 1
+            WHEN ta.trend_direction = 'positive' THEN 1
             ELSE NULL
         END) AS trending_up,
     count(
         CASE
-            WHEN ta.trend_direction = 'down' THEN 1
+            WHEN ta.trend_direction = 'negative' THEN 1
             ELSE NULL
         END) AS trending_down,
     count(
@@ -19,7 +19,7 @@ SELECT
             ELSE NULL
         END) AS trending_neutral
 FROM
-    {{ source('analytics', 'trend_analysis') }} ta
+    {{ source('analytics', 'artist_trends') }} ta
 GROUP BY
     ta.first_seen
 ORDER BY

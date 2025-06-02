@@ -1,0 +1,10 @@
+metric,value
+timestamp,2025-06-01T02:17:32.140235
+data_period,2025-06-01T10:00:00Z
+confidence_score,0.85
+key_findings_count,5
+artist_insights_count,3
+genre_insights_count,3
+temporal_insights_count,1
+recommendations_count,0
+market_implications_count,0

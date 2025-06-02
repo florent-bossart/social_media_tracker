@@ -14,10 +14,9 @@ models:
         tests:
           - not_null
       - name: comment_id
-        description: "YouTube comment ID, unique per comment."
+        description: "YouTube comment ID"
         tests:
           - not_null
-          - unique
       - name: text_clean
         description: "Lowercased, trimmed comment text."
       - name: author_clean

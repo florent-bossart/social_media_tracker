@@ -7,13 +7,13 @@ SELECT
     ta.engagement_level,
     ta.platforms,
     sa.overall_sentiment AS latest_sentiment,
-    sa.sentiment_confidence,
+    sa.confidence_score AS sentiment_confidence,
     ta.first_seen,
     ta.last_seen
 FROM
-    {{ source('analytics', 'trend_analysis') }} ta
+    {{ source('analytics', 'artist_trends') }} ta
 LEFT JOIN
-    {{ source('analytics', 'sentiment_analysis') }} sa ON sa.artists_found::text LIKE ('%' || ta.entity_name || '%')
+    {{ source('analytics', 'sentiment_analysis') }} sa ON sa.artist_sentiment::text LIKE ('%' || ta.entity_name || '%')
 WHERE
     ta.entity_type = 'artist'
 ORDER BY

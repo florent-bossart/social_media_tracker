@@ -42,10 +42,17 @@ poetry run python data_pipeline/run_sentiment_pipeline.py reddit \
 
 
 trend detect:
+
+poetry run python llm_enrichment/trend/trend_detection_standalone.py \
+    --input_file /home/florent.bossart/code/florent-bossart/social_media_tracker/data/intermediate/sentiment_analysis/youtube_combined_sentiment_original_data_20250531_011803.csv \
+    --output_dir /home/florent.bossart/code/florent-bossart/social_media_tracker/data/intermediate/trend_analysis/ \
+    --ollama-host "https://67cdbb6816d8.ngrok.app"
+    
 poetry run python llm_enrichment/trend/trend_detection_standalone.py \
     --input_file /home/florent.bossart/code/florent-bossart/social_media_tracker/data/intermediate/sentiment_analysis/reddit_sentiment_results_YYYYMMDD_HHMMSS.csv \
     --output_dir /home/florent.bossart/code/florent-bossart/social_media_tracker/data/intermediate/trend_analysis/ \
     --ollama-host "https://a37c4718d85c.ngrok.app"
+
 
 
 summarization :

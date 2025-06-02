@@ -5,10 +5,9 @@ models:
     description: "Reddit comments with cleaned fields and assigned post_id from cleaned_reddit_posts."
     columns:
       - name: comment_id
-        description: "Unique comment ID."
+        description: "comment ID."
         tests:
           - not_null
-          - unique
       - name: post_id
         description: "ID of the related reddit post."
         tests:

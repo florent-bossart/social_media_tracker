@@ -109,14 +109,14 @@ class TrendDetector:
             except:
                 return []
 
-        df['artists_found'] = df['artists_found'].apply(safe_parse_json)
-        df['songs_found'] = df['songs_found'].apply(safe_parse_json)
-        df['genres_found'] = df['genres_found'].apply(safe_parse_json)
+        df['entities_artists'] = df['entities_artists'].apply(safe_parse_json)
+        df['entities_songs'] = df['entities_songs'].apply(safe_parse_json)
+        df['entities_genres'] = df['entities_genres'].apply(safe_parse_json)
         df['emotional_indicators'] = df['emotional_indicators'].apply(safe_parse_json)
 
         # Convert sentiment strength to numeric
         df['sentiment_strength'] = pd.to_numeric(df['sentiment_strength'], errors='coerce')
-        df['sentiment_confidence'] = pd.to_numeric(df['sentiment_confidence'], errors='coerce')
+        df['_score'] = pd.to_numeric(df['sentiment_confidence_score'], errors='coerce')
 
         self.logger.info("Data preprocessing completed")
         return df
