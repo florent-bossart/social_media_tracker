@@ -14,6 +14,7 @@ from io import BytesIO
 import warnings
 import numpy as np
 import json
+from urllib.parse import unquote # Added import
 warnings.filterwarnings("ignore", message="pandas only supports SQLAlchemy connectable")
 
 # Load environment variables from .env file
@@ -74,11 +75,19 @@ def get_artist_trends():
         FROM artist_stats
         WHERE artist_name_lower NOT ILIKE %(p_hall_of)s  -- Filter out playlist names (comparison is case-insensitive)
         AND artist_name_lower NOT ILIKE %(p_playlist)s  -- Filter out other playlists (comparison is case-insensitive)
+        AND artist_name_lower !='moa'
+        AND artist_name_lower !='momo'
+        AND artist_name_lower !='su-metal'
+        -- AND artist_name_lower !='babymetal'
+        AND artist_name_lower !='unknown'
         AND LENGTH(artist_name_lower) > 2  -- Filter out very short names
     )
     SELECT
         INITCAP(artist_name_lower) as artist_name, -- Capitalize first letter of each word
-        mention_count,
+        CASE
+            WHEN artist_name_lower = 'babymetal' THEN CAST(mention_count * 0.2 AS INTEGER)
+            ELSE mention_count
+        END as mention_count,
         sentiment_score,
         avg_confidence as trend_strength,
         CASE
@@ -87,14 +96,14 @@ def get_artist_trends():
             ELSE 'neutral'
         END as trend_direction,
         CASE
-            WHEN mention_count >= 50 THEN 'high'
+            WHEN mention_count >= 50 THEN 'high' -- This mention_count will now be the potentially adjusted one
             WHEN mention_count >= 20 THEN 'medium'
             ELSE 'low'
         END as engagement_level,
         platform_count
     FROM filtered_artists
     ORDER BY mention_count DESC
-    LIMIT 20
+    LIMIT 50
     """
     params = {'p_hall_of': 'hall of%', 'p_playlist': '%playlist%'} # Parameters remain suitable for ILIKE
     return fetch_data(query, params=params)
@@ -110,53 +119,50 @@ def get_genre_trends():
             ee.entities_genres,
             ee.confidence_score,
             sa.sentiment_strength,
-            sa.overall_sentiment, -- Added overall_sentiment from sentiment_analysis table
+            sa.overall_sentiment,
             ee.extraction_date
         FROM analytics.entity_extraction ee
         LEFT JOIN analytics.sentiment_analysis sa ON ee.original_text = sa.original_text
         WHERE ee.entities_genres IS NOT NULL
         AND jsonb_array_length(ee.entities_genres) > 0
     ),
-    genre_mentions AS (
-        SELECT
+    genre_text_pairs AS (
+        SELECT DISTINCT
             LOWER(jsonb_array_elements_text(dd.entities_genres)) as genre_lower,
+            dd.original_text,
             dd.source_platform,
             dd.confidence_score,
-            dd.extraction_date
-        FROM deduplicated_data dd
-        WHERE dd.entities_genres IS NOT NULL
-        AND jsonb_array_length(dd.entities_genres) > 0
-    ),
-    genre_sentiment AS (
-        SELECT
-            LOWER(jsonb_array_elements_text(dd.entities_genres)) as genre_lower,
-            dd.overall_sentiment, -- Changed from sa.overall_sentiment to dd.overall_sentiment
             dd.sentiment_strength,
-            dd.source_platform -- Added source_platform to be available for the join
+            dd.extraction_date
         FROM deduplicated_data dd
         WHERE dd.entities_genres IS NOT NULL
         AND jsonb_array_length(dd.entities_genres) > 0
     ),
     genre_stats AS (
         SELECT
-            gm.genre_lower,
-            COUNT(*) as mention_count,
-            AVG(gm.confidence_score) as trend_strength, -- Aggregating confidence
-            AVG(COALESCE(gs.sentiment_strength, 5.0)) as sentiment_score -- Using COALESCE for sentiment
-        FROM genre_mentions gm
-        LEFT JOIN genre_sentiment gs ON gm.genre_lower = gs.genre_lower AND gm.source_platform = gs.source_platform -- Potentially refine join if sentiment is tied to original_text
-        GROUP BY gm.genre_lower -- Group by lowercase genre
-        HAVING COUNT(*) >= 5  -- Only genres with at least 5 mentions
+            genre_lower,
+            COUNT(DISTINCT CONCAT(original_text, '||', source_platform)) as mention_count,
+            AVG(confidence_score) as trend_strength,
+            AVG(COALESCE(sentiment_strength, 5.0)) as sentiment_score
+        FROM genre_text_pairs
+        GROUP BY genre_lower
+        HAVING COUNT(DISTINCT CONCAT(original_text, '||', source_platform)) >= 5
     )
     SELECT
-        INITCAP(genre_lower) as genre, -- Capitalize first letter of each word
-        mention_count,
+        INITCAP(genre_lower) as genre,
+        CASE
+            WHEN genre_lower = 'metal' THEN CAST(mention_count * 1 AS INTEGER)
+            ELSE mention_count
+        END as mention_count,
         sentiment_score,
         trend_strength,
-        trend_strength as popularity_score -- Assuming trend_strength is a good proxy for popularity
+        trend_strength as popularity_score
     FROM genre_stats
+    WHERE
+        genre_lower != 'babymetal'
+        AND LENGTH(genre_lower) > 2  -- Filter out very short genre names
     ORDER BY mention_count DESC
-    LIMIT 15
+    LIMIT 25
     """
     return fetch_data(query)
 
@@ -256,25 +262,81 @@ def get_trend_summary_data():
         """
         overview_data = fetch_data(overview_query)
 
-        # Get top artists data
+        # Get top artists data with deduplication using parameters
         artists_query = """
-        SELECT * FROM analytics.trend_summary_top_artists
-        WHERE analysis_timestamp = (
-            SELECT MAX(analysis_timestamp) FROM analytics.trend_summary_top_artists
+        WITH decoded_artists AS (
+            SELECT
+                *,
+                CASE
+                    WHEN entity_name LIKE %(url_encoded_pattern)s THEN
+                        REPLACE(
+                            REPLACE(
+                                REPLACE(
+                                REPLACE(
+                                    REPLACE(
+                                    REPLACE(
+                                                        UPPER(entity_name),
+                                                        %(encoded_mi)s, %(decoded_mi)s
+                                                        ),
+                                                        %(encoded_zu)s, %(decoded_zu)s
+                                                    ),
+                                                    %(encoded_ni)s, %(decoded_ni)s
+                                                    ),
+                                                    %(encoded_u)s, %(decoded_u)s
+                                                ),
+                                                %(encoded_ki)s, %(decoded_ki)s
+                                                ),
+                                                %(encoded_ku)s, %(decoded_ku)s
+                        )
+                    ELSE UPPER(entity_name)
+                END as normalized_name
+            FROM analytics.artist_trends
+        ),
+        deduped_artists AS (
+            SELECT
+                entity_name AS artist_name,
+                trend_strength,
+                mention_count AS mentions,
+                sentiment_score,
+                trend_direction AS sentiment_direction,
+                platforms,
+                last_seen,
+                 ROW_NUMBER() OVER (PARTITION BY normalized_name ORDER BY mention_count ASC, trend_strength ASC) as rn
+            FROM decoded_artists
         )
-        ORDER BY trend_strength DESC
+        SELECT * FROM deduped_artists
+        WHERE rn = 1
+
+        ORDER BY trend_strength DESC, mentions DESC
         LIMIT 50
         """
-        artists_data = fetch_data(artists_query)
 
-        # Get top genres data
+        # Parameters for URL decoding
+        artists_params = {
+            'url_encoded_pattern': '%25%',
+            'encoded_mi': '%E3%83%9F', 'decoded_mi': 'ミ',
+            'encoded_zu': '%E3%82%BA', 'decoded_zu': 'ズ',
+            'encoded_ni': '%E3%83%8B', 'decoded_ni': 'ニ',
+            'encoded_u': '%E3%82%A6', 'decoded_u': 'ウ',
+            'encoded_ki': '%E3%82%AD', 'decoded_ki': 'キ',
+            'encoded_ku': '%E3%82%AF', 'decoded_ku': 'ク',
+            'encoded_sa': '%E3%82%B5', 'decoded_sa': 'サ',
+        }
+
+        artists_data = fetch_data(artists_query, params=artists_params)
+
+        # Get top genres data with NaN filtering
         genres_query = """
         SELECT * FROM analytics.trend_summary_top_genres
         WHERE analysis_timestamp = (
             SELECT MAX(analysis_timestamp) FROM analytics.trend_summary_top_genres
         )
+        AND LOWER(genre_name) != 'nan'
+        AND LOWER(genre_name) != 'null'
+        AND genre_name IS NOT NULL
+        AND TRIM(genre_name) != ''
         ORDER BY popularity_score DESC
-        LIMIT 20
+        LIMIT 15
         """
         genres_data = fetch_data(genres_query)
 
@@ -519,7 +581,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<div class="main-header"><h1>🎌 Japanese Music Trends Dashboard</h1><p>Real-time Social Media Analytics for J-Pop, City Pop, Anime Music & More</p></div>', unsafe_allow_html=True)
+st.markdown('<div class="main-header"><h1>🎌 Japanese Music Trends Dashboard</h1><p>Social Media Analytics for J-Pop, City Pop, Anime Music & More</p></div>', unsafe_allow_html=True)
 
 st.sidebar.title("🎵 Navigation")
 page = st.sidebar.radio("Choose a category", [
@@ -529,7 +591,7 @@ page = st.sidebar.radio("Choose a category", [
     "☁️ Word Cloud",
     "📱 Platform Insights",
     "💭 Sentiment Deep Dive",
-    "📈 Trend Summary",
+    "📈 AI Trend Summary",
     "🔍 AI Insights",
     "📊 Raw Data Explorer"
 ])
@@ -537,6 +599,9 @@ page = st.sidebar.radio("Choose a category", [
 # Load real data
 try:
     artist_data = get_artist_trends()
+    if not artist_data.empty and 'artist_name' in artist_data.columns:
+        artist_data['artist_name'] = artist_data['artist_name'].apply(lambda x: unquote(x) if isinstance(x, str) else x) # Added decoding
+
     genre_data = get_genre_trends()
     platform_data = get_platform_data()
     temporal_data = get_temporal_data()
@@ -576,6 +641,11 @@ try:
                     st.warning(f"Trend summary data[{key}] has unexpected format. Got {type(value)}, expected DataFrame.")
                     # Replace with empty DataFrame to prevent errors
                     trend_summary_data[key] = pd.DataFrame()
+                else:
+                    if key == 'artists' and not value.empty and 'artist_name' in value.columns:
+                        trend_summary_data[key]['artist_name'] = trend_summary_data[key]['artist_name'].apply(lambda x: unquote(x) if isinstance(x, str) else x)
+                    elif key == 'genres' and not value.empty and 'genre_name' in value.columns:
+                        trend_summary_data[key]['genre_name'] = trend_summary_data[key]['genre_name'].apply(lambda x: unquote(x) if isinstance(x, str) else x)
 
     if insights_summary_data is not None:
         if not isinstance(insights_summary_data, dict):
@@ -587,6 +657,11 @@ try:
                     st.warning(f"Insights summary data[{key}] has unexpected format. Got {type(value)}, expected DataFrame.")
                     # Replace with empty DataFrame to prevent errors
                     insights_summary_data[key] = pd.DataFrame()
+                else:
+                    if key == 'artist_insights' and not value.empty and 'artist_name' in value.columns:
+                        insights_summary_data[key]['artist_name'] = value['artist_name'].apply(lambda x: unquote(x) if isinstance(x, str) else x)
+                    elif key == 'overview' and not value.empty and 'executive_summary' in value.columns:
+                        insights_summary_data[key]['executive_summary'] = value['executive_summary'].apply(lambda x: unquote(x) if isinstance(x, str) else x)
 
 except Exception as e:
     st.error(f"Error loading summary data: {str(e)}")
@@ -874,9 +949,9 @@ elif page == "💭 Sentiment Deep Dive":
 
         # Get sentiment by artist
         artist_sentiment_query = """
-        WITH artist_sentiment AS (
-            SELECT
-                jsonb_array_elements_text(ee.entities_artists) as artist_name,
+        WITH deduplicated_data AS (
+            SELECT DISTINCT ON (ee.original_text, ee.source_platform)
+                ee.entities_artists,
                 sa.overall_sentiment,
                 sa.sentiment_strength
             FROM analytics.entity_extraction ee
@@ -884,19 +959,38 @@ elif page == "💭 Sentiment Deep Dive":
             WHERE ee.entities_artists IS NOT NULL
                 AND sa.overall_sentiment IS NOT NULL
                 AND jsonb_array_length(ee.entities_artists) > 0
+        ),
+        artist_sentiment AS (
+            SELECT
+                LOWER(jsonb_array_elements_text(dd.entities_artists)) as artist_name_lower,
+                dd.overall_sentiment,
+                dd.sentiment_strength
+            FROM deduplicated_data dd
         )
         SELECT
-            artist_name,
+            INITCAP(artist_name_lower) as artist_name,
             overall_sentiment,
             AVG(sentiment_strength) as avg_sentiment_score,
-            COUNT(*) as mention_count
+            CASE
+                WHEN artist_name_lower = 'babymetal' THEN CAST(COUNT(*)  * 0.2 AS INTEGER)
+                ELSE COUNT(*)
+            END as mention_count
         FROM artist_sentiment
-        GROUP BY artist_name, overall_sentiment
+        WHERE
+             artist_name_lower !='moa'
+            AND artist_name_lower !='momo'
+            AND artist_name_lower !='su-metal'
+            -- AND artist_name_lower !='babymetal'
+            AND artist_name_lower !='unknown'
+            AND LENGTH(artist_name_lower) > 2
+        GROUP BY artist_name_lower, overall_sentiment
         HAVING COUNT(*) >= 5
         ORDER BY mention_count DESC
         LIMIT 50
         """
         artist_sentiment_data = fetch_data(artist_sentiment_query)
+        if not artist_sentiment_data.empty and 'artist_name' in artist_sentiment_data.columns:
+            artist_sentiment_data['artist_name'] = artist_sentiment_data['artist_name'].apply(lambda x: unquote(x) if isinstance(x, str) else x) # Added decoding
 
         if not sentiment_data_detailed.empty:
             st.subheader("🎯 Overall Sentiment Landscape")
@@ -1010,7 +1104,7 @@ elif page == "💭 Sentiment Deep Dive":
         st.error(f"Error loading sentiment data: {str(e)}")
         st.info("Please check the database connection and try again.")
 
-elif page == "📈 Trend Summary":
+elif page == "📈 AI Trend Summary":
     st.header("📈 AI-Generated Trend Summary")
 
     if trend_summary_data and not trend_summary_data['overview'].empty:
@@ -1035,30 +1129,7 @@ elif page == "📈 Trend Summary":
             artists_count = len(trend_summary_data['artists']) if 'artists' in trend_summary_data and not trend_summary_data['artists'].empty else 0
             st.metric("Top Artists Count", artists_count)
 
-        # Top Trending Artists
-        st.subheader("🎤 Top Trending Artists")
-        if not trend_summary_data['artists'].empty:
-            artists_df = trend_summary_data['artists'].head(20)
 
-            # Create an interactive chart
-            fig = px.bar(artists_df,
-                        x='trend_strength',
-                        y='artist_name',
-                        color='sentiment_score',
-                        orientation='h',
-                        title="Artist Trend Strength vs Sentiment",
-                        color_continuous_scale='RdYlGn',
-                        hover_data=['mentions', 'sentiment_direction'])
-            fig.update_layout(height=600)
-            st.plotly_chart(fig, use_container_width=True)
-
-            # Artists table with key metrics
-            st.subheader("📋 Detailed Artist Metrics")
-            display_artists = artists_df[['artist_name', 'trend_strength', 'mentions',
-                                        'sentiment_score', 'sentiment_direction']].copy()
-            display_artists.columns = ['Artist', 'Trend Strength', 'Mentions',
-                                     'Sentiment Score', 'Sentiment Direction']
-            st.dataframe(display_artists, use_container_width=True)
 
         # Top Genres
         if not trend_summary_data['genres'].empty:
@@ -1110,6 +1181,31 @@ elif page == "📈 Trend Summary":
                            title="Engagement Distribution",
                            color_discrete_sequence=['#ff7f0e', '#2ca02c', '#d62728'])
                 st.plotly_chart(fig, use_container_width=True)
+
+        # Top Trending Artists
+        st.subheader("🎤 Top Trending Artists")
+        if not trend_summary_data['artists'].empty:
+            artists_df = trend_summary_data['artists'].head(20)
+
+            # Create an interactive chart
+            fig = px.bar(artists_df,
+                        x='trend_strength',
+                        y='artist_name',
+                        color='sentiment_score',
+                        orientation='h',
+                        title="Artist Trend Strength vs Sentiment",
+                        color_continuous_scale='RdYlGn',
+                        hover_data=['mentions', 'sentiment_direction'])
+            fig.update_layout(height=600)
+            st.plotly_chart(fig, use_container_width=True)
+
+            # Artists table with key metrics
+            st.subheader("📋 Detailed Artist Metrics")
+            display_artists = artists_df[['artist_name', 'trend_strength', 'mentions',
+                                        'sentiment_score', 'sentiment_direction']].copy()
+            display_artists.columns = ['Artist', 'Trend Strength', 'Mentions',
+                                     'Sentiment Score', 'Sentiment Direction']
+            st.dataframe(display_artists, use_container_width=True)
     else:
         st.warning("No trend summary data available")
 
@@ -1141,6 +1237,10 @@ elif page == "🔍 AI Insights":
             st.subheader("🔑 Key Findings")
 
             findings = insights_summary_data['findings']
+            # Ensure 'finding_text' is decoded
+            if 'finding_text' in findings.columns:
+                findings['finding_text'] = findings['finding_text'].apply(lambda x: unquote(x) if isinstance(x, str) else x)
+
             for _, finding in findings.iterrows():
                 st.write(f"**{finding['finding_order']}.** {finding['finding_text']}")
 
@@ -1191,11 +1291,11 @@ elif page == "🔍 AI Insights":
                         st.write(insight['insight_text'])
             else:
                 # Show insights for selected artist
-                artist_data = artist_insights[artist_insights['artist_name'] == selected_artist]
+                artist_data_insights = artist_insights[artist_insights['artist_name'] == selected_artist] # Renamed to avoid conflict
 
-                if not artist_data.empty:
+                if not artist_data_insights.empty:
                     st.write(f"**Insights for {selected_artist}:**")
-                    for _, insight in artist_data.iterrows():
+                    for _, insight in artist_data_insights.iterrows():
                         st.write(insight['insight_text'])
                 else:
                     st.warning(f"No insights available for {selected_artist}")

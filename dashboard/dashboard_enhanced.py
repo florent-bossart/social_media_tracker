@@ -10,10 +10,10 @@ import matplotlib.pyplot as plt
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-import seaborn as sns
 from io import BytesIO
 import warnings
 import numpy as np
+import json
 warnings.filterwarnings("ignore", message="pandas only supports SQLAlchemy connectable")
 
 # Load environment variables from .env file
@@ -34,52 +34,411 @@ def get_engine():
 
 def fetch_data(query, params=None):
     engine = get_engine()
-    return pd.read_sql_query(query, engine, params=params)
+    actual_params = [] if params is None else params
+    return pd.read_sql_query(query, engine, params=actual_params)
 
-def create_mock_data_if_needed():
-    """Create mock data for demonstration purposes when real data is not available"""
+@st.cache_data
+def get_artist_trends():
+    """Fetch real artist trends from entity extraction and sentiment analysis"""
+    query = """
+    WITH deduplicated_data AS (
+        SELECT DISTINCT ON (ee.original_text, ee.source_platform)
+            ee.original_text,
+            ee.source_platform,
+            ee.entities_artists,
+            ee.confidence_score,
+            sa.sentiment_strength
+        FROM analytics.entity_extraction ee
+        LEFT JOIN analytics.sentiment_analysis sa ON ee.original_text = sa.original_text
+        WHERE ee.entities_artists IS NOT NULL
+        AND jsonb_array_length(ee.entities_artists) > 0
+    ),
+    artist_stats AS (
+        SELECT
+            LOWER(jsonb_array_elements_text(dd.entities_artists)) as artist_name_lower, -- Convert to lowercase for grouping
+            COUNT(*) as mention_count,
+            AVG(dd.confidence_score) as avg_confidence,
+            COUNT(DISTINCT dd.source_platform) as platform_count,
+            AVG(COALESCE(dd.sentiment_strength, 5.0)) as sentiment_score
+        FROM deduplicated_data dd
+        GROUP BY artist_name_lower -- Group by the lowercased artist name
+        HAVING COUNT(*) >= 3  -- Only artists with at least 3 mentions
+    ),
+    filtered_artists AS (
+        SELECT
+            artist_name_lower,
+            mention_count,
+            avg_confidence,
+            platform_count,
+            sentiment_score
+        FROM artist_stats
+        WHERE artist_name_lower NOT ILIKE %(p_hall_of)s  -- Filter out playlist names (comparison is case-insensitive)
+        AND artist_name_lower NOT ILIKE %(p_playlist)s  -- Filter out other playlists (comparison is case-insensitive)
+        AND LENGTH(artist_name_lower) > 2  -- Filter out very short names
+    )
+    SELECT
+        INITCAP(artist_name_lower) as artist_name, -- Capitalize first letter of each word
+        mention_count,
+        sentiment_score,
+        avg_confidence as trend_strength,
+        CASE
+            WHEN sentiment_score >= 7 THEN 'positive'
+            WHEN sentiment_score <= 4 THEN 'negative'
+            ELSE 'neutral'
+        END as trend_direction,
+        CASE
+            WHEN mention_count >= 50 THEN 'high'
+            WHEN mention_count >= 20 THEN 'medium'
+            ELSE 'low'
+        END as engagement_level,
+        platform_count
+    FROM filtered_artists
+    ORDER BY mention_count DESC
+    LIMIT 20
+    """
+    params = {'p_hall_of': 'hall of%', 'p_playlist': '%playlist%'} # Parameters remain suitable for ILIKE
+    return fetch_data(query, params=params)
 
-    # Mock artist trends data
-    mock_artists = pd.DataFrame({
-        'artist_name': ['YOASOBI', 'Ado', 'King Gnu', 'LiSA', 'Kenshi Yonezu', 'Hikaru Utada', 'ONE OK ROCK', 'Fujii Kaze'],
-        'mention_count': [156, 134, 98, 87, 76, 65, 54, 43],
-        'sentiment_score': [8.2, 7.8, 8.5, 8.0, 7.6, 8.1, 7.9, 8.3],
-        'trend_strength': [0.92, 0.88, 0.85, 0.82, 0.78, 0.75, 0.72, 0.69],
-        'trend_direction': ['positive', 'positive', 'positive', 'positive', 'neutral', 'positive', 'positive', 'positive'],
-        'engagement_level': ['high', 'high', 'high', 'medium', 'medium', 'medium', 'medium', 'low'],
-        'platforms': [['YouTube', 'Twitter', 'Reddit'], ['YouTube', 'Twitter'], ['YouTube', 'Reddit'],
-                     ['YouTube', 'Twitter'], ['YouTube'], ['Twitter', 'Reddit'], ['YouTube'], ['YouTube', 'Twitter']]
-    })
+@st.cache_data
+def get_genre_trends():
+    """Fetch real genre trends from entity extraction"""
+    query = """
+    WITH deduplicated_data AS (
+        SELECT DISTINCT ON (ee.original_text, ee.source_platform)
+            ee.original_text,
+            ee.source_platform,
+            ee.entities_genres,
+            ee.confidence_score,
+            sa.sentiment_strength,
+            sa.overall_sentiment, -- Added overall_sentiment from sentiment_analysis table
+            ee.extraction_date
+        FROM analytics.entity_extraction ee
+        LEFT JOIN analytics.sentiment_analysis sa ON ee.original_text = sa.original_text
+        WHERE ee.entities_genres IS NOT NULL
+        AND jsonb_array_length(ee.entities_genres) > 0
+    ),
+    genre_mentions AS (
+        SELECT
+            LOWER(jsonb_array_elements_text(dd.entities_genres)) as genre_lower,
+            dd.source_platform,
+            dd.confidence_score,
+            dd.extraction_date
+        FROM deduplicated_data dd
+        WHERE dd.entities_genres IS NOT NULL
+        AND jsonb_array_length(dd.entities_genres) > 0
+    ),
+    genre_sentiment AS (
+        SELECT
+            LOWER(jsonb_array_elements_text(dd.entities_genres)) as genre_lower,
+            dd.overall_sentiment, -- Changed from sa.overall_sentiment to dd.overall_sentiment
+            dd.sentiment_strength,
+            dd.source_platform -- Added source_platform to be available for the join
+        FROM deduplicated_data dd
+        WHERE dd.entities_genres IS NOT NULL
+        AND jsonb_array_length(dd.entities_genres) > 0
+    ),
+    genre_stats AS (
+        SELECT
+            gm.genre_lower,
+            COUNT(*) as mention_count,
+            AVG(gm.confidence_score) as trend_strength, -- Aggregating confidence
+            AVG(COALESCE(gs.sentiment_strength, 5.0)) as sentiment_score -- Using COALESCE for sentiment
+        FROM genre_mentions gm
+        LEFT JOIN genre_sentiment gs ON gm.genre_lower = gs.genre_lower AND gm.source_platform = gs.source_platform -- Potentially refine join if sentiment is tied to original_text
+        GROUP BY gm.genre_lower -- Group by lowercase genre
+        HAVING COUNT(*) >= 5  -- Only genres with at least 5 mentions
+    )
+    SELECT
+        INITCAP(genre_lower) as genre, -- Capitalize first letter of each word
+        mention_count,
+        sentiment_score,
+        trend_strength,
+        trend_strength as popularity_score -- Assuming trend_strength is a good proxy for popularity
+    FROM genre_stats
+    ORDER BY mention_count DESC
+    LIMIT 15
+    """
+    return fetch_data(query)
 
-    # Mock genre trends data
-    mock_genres = pd.DataFrame({
-        'genre': ['J-Pop', 'City Pop', 'Anime Music', 'J-Rock', 'Visual Kei', 'Enka'],
-        'mention_count': [234, 156, 189, 123, 67, 34],
-        'sentiment_score': [8.1, 8.4, 8.0, 7.8, 7.5, 7.2],
-        'trend_strength': [0.89, 0.85, 0.87, 0.76, 0.65, 0.58],
-        'popularity_score': [0.91, 0.83, 0.85, 0.74, 0.62, 0.55]
-    })
+@st.cache_data
+def get_platform_data():
+    """Fetch platform comparison data"""
+    query = """
+    WITH platform_artists AS (
+        SELECT
+            ee.source_platform,
+            jsonb_array_elements_text(ee.entities_artists) as artist_name
+        FROM analytics.entity_extraction ee
+        WHERE ee.entities_artists IS NOT NULL
+        AND jsonb_array_length(ee.entities_artists) > 0
+    )
+    SELECT
+        ee.source_platform as platform,
+        COUNT(*) as total_mentions,
+        AVG(sa.sentiment_strength) as avg_sentiment,
+        COALESCE(pa.active_artists, 0) as active_artists
+    FROM analytics.entity_extraction ee
+    LEFT JOIN analytics.sentiment_analysis sa ON ee.original_text = sa.original_text
+    LEFT JOIN (
+        SELECT
+            source_platform,
+            COUNT(DISTINCT artist_name) as active_artists
+        FROM platform_artists
+        GROUP BY source_platform
+    ) pa ON ee.source_platform = pa.source_platform
+    GROUP BY ee.source_platform, pa.active_artists
+    ORDER BY total_mentions DESC
+    """
+    return fetch_data(query)
 
-    # Mock platform data
-    mock_platforms = pd.DataFrame({
-        'platform': ['YouTube', 'Twitter', 'Reddit', 'TikTok'],
-        'total_mentions': [445, 298, 167, 123],
-        'avg_sentiment': [8.1, 7.8, 8.2, 7.9],
-        'active_artists': [12, 15, 8, 10]
-    })
+@st.cache_data
+def get_temporal_data():
+    """Fetch temporal trends data"""
+    query = """
+    SELECT
+        DATE(ee.extraction_date) as date,
+        COUNT(*) as daily_mentions,
+        AVG(COALESCE(sa.sentiment_strength, 0.5)) as daily_sentiment
+    FROM analytics.entity_extraction ee
+    LEFT JOIN analytics.sentiment_analysis sa ON ee.original_text = sa.original_text
+    WHERE ee.extraction_date >= CURRENT_DATE - INTERVAL '30 days'
+    GROUP BY DATE(ee.extraction_date)
+    ORDER BY date
+    """
+    return fetch_data(query)
 
-    # Mock temporal data
-    dates = pd.date_range(start='2025-05-01', end='2025-05-31', freq='D')
-    mock_temporal = pd.DataFrame({
-        'date': dates,
-        'daily_mentions': np.random.poisson(25, len(dates)) + np.sin(np.arange(len(dates)) * 0.2) * 10 + 25,
-        'daily_sentiment': np.random.normal(7.8, 0.5, len(dates))
-    })
+@st.cache_data
+def get_wordcloud_data():
+    """Fetch word cloud data"""
+    query = """
+    SELECT word, frequency
+    FROM analytics.wordcloud_data
+    WHERE frequency >= 50  -- Only include words with reasonable frequency
+    ORDER BY frequency DESC
+    LIMIT 200
+    """
+    return fetch_data(query)
 
-    return mock_artists, mock_genres, mock_platforms, mock_temporal
+@st.cache_data
+def get_overall_stats():
+    """Get overall dashboard statistics"""
+    query = """
+    WITH unique_artists AS (
+        SELECT DISTINCT jsonb_array_elements_text(entities_artists) as artist_name
+        FROM analytics.entity_extraction
+        WHERE entities_artists IS NOT NULL
+        AND jsonb_array_length(entities_artists) > 0
+    )
+    SELECT
+        (SELECT COUNT(*) FROM analytics.entity_extraction) as total_extractions,
+        (SELECT COUNT(*) FROM analytics.sentiment_analysis) as total_sentiments,
+        (SELECT COUNT(*) FROM unique_artists) as unique_artists,
+        (SELECT AVG(sentiment_strength)
+         FROM analytics.sentiment_analysis
+         WHERE sentiment_strength IS NOT NULL) as avg_sentiment,
+        (SELECT COUNT(*)
+         FROM analytics.sentiment_analysis
+         WHERE overall_sentiment = 'positive') as positive_count,
+        (SELECT COUNT(*)
+         FROM analytics.sentiment_analysis) as total_sentiment_count
+    """
+    return fetch_data(query)
+
+@st.cache_data
+def get_trend_summary_data():
+    """Fetch trend summary data from flattened tables"""
+    try:
+        # Get overview data
+        overview_query = """
+        SELECT * FROM analytics.trend_summary_overview
+        ORDER BY analysis_timestamp DESC
+        LIMIT 1
+        """
+        overview_data = fetch_data(overview_query)
+
+        # Get top artists data with deduplication using parameters
+        artists_query = """
+        WITH decoded_artists AS (
+            SELECT
+                *,
+                CASE
+                    WHEN artist_name LIKE %(url_encoded_pattern)s THEN
+                        REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
+                            REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
+                                UPPER(artist_name),
+                                %(encoded_mi)s, %(decoded_mi)s), %(encoded_zu)s, %(decoded_zu)s), %(encoded_ni)s, %(decoded_ni)s), %(encoded_u)s, %(decoded_u)s),
+                                %(encoded_ki)s, %(decoded_ki)s), %(encoded_ku)s, %(decoded_ku)s), %(encoded_sa)s, %(decoded_sa)s), %(encoded_zwsp)s, %(decoded_zwsp)s),
+                                %(encoded_dot)s, %(decoded_dot)s), %(encoded_rsquote)s, %(decoded_rsquote)s), %(encoded_lsquote)s, %(decoded_lsquote)s), %(encoded_idspace)s, %(decoded_idspace)s),
+                                %(encoded_space)s, %(decoded_space)s), %(encoded_excl)s, %(decoded_excl)s), %(encoded_quote)s, %(decoded_quote)s), %(encoded_hash)s, %(decoded_hash)s), %(encoded_dollar)s, %(decoded_dollar)s), %(encoded_amp)s, %(decoded_amp)s),
+                                %(encoded_apos)s, %(decoded_apos)s), %(encoded_lparen)s, %(decoded_lparen)s), %(encoded_rparen)s, %(decoded_rparen)s)
+                    ELSE UPPER(artist_name)
+                END as normalized_name
+            FROM analytics.trend_summary_top_artists
+            WHERE analysis_timestamp = (
+                SELECT MAX(analysis_timestamp) FROM analytics.trend_summary_top_artists
+            )
+        ),
+        deduped_artists AS (
+            SELECT
+                artist_name,
+                trend_strength,
+                mentions,
+                sentiment_score,
+                sentiment_direction,
+                platforms,
+                analysis_timestamp,
+                ROW_NUMBER() OVER (PARTITION BY normalized_name ORDER BY mentions DESC, trend_strength DESC) as rn
+            FROM decoded_artists
+        )
+        SELECT * FROM deduped_artists
+        WHERE rn = 1
+        ORDER BY trend_strength DESC, mentions DESC
+        LIMIT 50
+        """
+
+        # Parameters for URL decoding
+        artists_params = {
+            'url_encoded_pattern': '%25%',
+            'encoded_mi': '%E3%83%9F', 'decoded_mi': 'ミ',
+            'encoded_zu': '%E3%82%BA', 'decoded_zu': 'ズ',
+            'encoded_ni': '%E3%83%8B', 'decoded_ni': 'ニ',
+            'encoded_u': '%E3%82%A6', 'decoded_u': 'ウ',
+            'encoded_ki': '%E3%82%AD', 'decoded_ki': 'キ',
+            'encoded_ku': '%E3%82%AF', 'decoded_ku': 'ク',
+            'encoded_sa': '%E3%82%B5', 'decoded_sa': 'サ',
+            'encoded_zwsp': '%E2%80%8B', 'decoded_zwsp': '',
+            'encoded_dot': '%E3%83%BB', 'decoded_dot': '・',
+            'encoded_rsquote': '%E2%80%99', 'decoded_rsquote': '',
+            'encoded_lsquote': '%E2%80%98', 'decoded_lsquote': '',
+            'encoded_idspace': '%E3%80%80', 'decoded_idspace': '　',
+            'encoded_space': '%20', 'decoded_space': ' ',
+            'encoded_excl': '%21', 'decoded_excl': '!',
+            'encoded_quote': '%22', 'decoded_quote': '"',
+            'encoded_hash': '%23', 'decoded_hash': '#',
+            'encoded_dollar': '%24', 'decoded_dollar': '$',
+            'encoded_amp': '%26', 'decoded_amp': '&',
+            'encoded_apos': '%27', 'decoded_apos': chr(39),
+            'encoded_lparen': '%28', 'decoded_lparen': '(',
+            'encoded_rparen': '%29', 'decoded_rparen': ')'
+        }
+
+        artists_data = fetch_data(artists_query, params=artists_params)
+
+        # Get top genres data with NaN filtering
+        genres_query = """
+        SELECT * FROM analytics.trend_summary_top_genres
+        WHERE analysis_timestamp = (
+            SELECT MAX(analysis_timestamp) FROM analytics.trend_summary_top_genres
+        )
+        AND LOWER(genre_name) != 'nan'
+        AND LOWER(genre_name) != 'null'
+        AND genre_name IS NOT NULL
+        AND TRIM(genre_name) != ''
+        ORDER BY popularity_score DESC
+        LIMIT 15
+        """
+        genres_data = fetch_data(genres_query)
+
+        # Get sentiment patterns
+        sentiment_query = """
+        SELECT * FROM analytics.trend_summary_sentiment_patterns
+        ORDER BY analysis_timestamp DESC
+        LIMIT 1
+        """
+        sentiment_data = fetch_data(sentiment_query)
+
+        # Get engagement levels
+        engagement_query = """
+        SELECT * FROM analytics.trend_summary_engagement_levels
+        ORDER BY analysis_timestamp DESC
+        LIMIT 1
+        """
+        engagement_data = fetch_data(engagement_query)
+
+        return {
+            'overview': overview_data,
+            'artists': artists_data,
+            'genres': genres_data,
+            'sentiment': sentiment_data,
+            'engagement': engagement_data
+        }
+    except Exception as e:
+        st.error(f"Error fetching trend summary data: {e}")
+        return None
+
+@st.cache_data
+def get_insights_summary_data():
+    """Fetch insights summary data from flattened tables"""
+    try:
+        # Get overview data
+        overview_query = """
+        SELECT * FROM analytics.insights_summary_overview
+        ORDER BY analysis_timestamp DESC
+        LIMIT 1
+        """
+        overview_data = fetch_data(overview_query)
+
+        # Get key findings
+        findings_query = """
+        SELECT * FROM analytics.insights_summary_key_findings
+        WHERE analysis_timestamp = (
+            SELECT MAX(analysis_timestamp) FROM analytics.insights_summary_key_findings
+        )
+        ORDER BY finding_order
+        """
+        findings_data = fetch_data(findings_query)
+
+        # Get artist insights
+        artist_insights_query = """
+        SELECT * FROM analytics.insights_summary_artist_insights
+        WHERE analysis_timestamp = (
+            SELECT MAX(analysis_timestamp) FROM analytics.insights_summary_artist_insights
+        )
+        ORDER BY artist_name
+        """
+        artist_insights_data = fetch_data(artist_insights_query)
+
+        return {
+            'overview': overview_data,
+            'findings': findings_data,
+            'artist_insights': artist_insights_data
+        }
+    except Exception as e:
+        st.error(f"Error fetching insights summary data: {e}")
+        return None
+
+def create_wordcloud_chart(df):
+    """Create a word cloud from the database data"""
+    if df.empty:
+        st.warning("No word cloud data available")
+        return None
+
+    # Create word frequency dictionary
+    word_freq = dict(zip(df['word'], df['frequency']))
+
+    # Generate word cloud
+    wordcloud = WordCloud(
+        width=800,
+        height=400,
+        background_color='white',
+        colormap='viridis',
+        max_words=100
+    ).generate_from_frequencies(word_freq)
+
+    # Create matplotlib figure
+    fig, ax = plt.subplots(figsize=(10, 5))
+    ax.imshow(wordcloud, interpolation='bilinear')
+    ax.axis('off')
+    ax.set_title('🎵 Music Discussion Word Cloud', fontsize=16, fontweight='bold', pad=20)
+
+    return fig
 
 def create_artist_trends_chart(df):
     """Create an interactive artist trends visualization"""
+    if df.empty:
+        st.warning("No artist data available")
+        return None
+
     fig = px.scatter(df,
                      x='mention_count',
                      y='sentiment_score',
@@ -101,9 +460,13 @@ def create_artist_trends_chart(df):
 
 def create_genre_radar_chart(df):
     """Create a radar chart for genre analysis"""
+    if df.empty:
+        st.warning("No genre data available")
+        return None
+
     fig = go.Figure()
 
-    for _, row in df.iterrows():
+    for _, row in df.head(6).iterrows():  # Limit to top 6 genres for readability
         fig.add_trace(go.Scatterpolar(
             r=[row['mention_count']/df['mention_count'].max(),
                row['sentiment_score']/10,
@@ -127,6 +490,10 @@ def create_genre_radar_chart(df):
 
 def create_platform_comparison(df):
     """Create platform comparison charts"""
+    if df.empty:
+        st.warning("No platform data available")
+        return None
+
     fig = make_subplots(
         rows=1, cols=2,
         subplot_titles=('Platform Activity', 'Average Sentiment by Platform'),
@@ -150,6 +517,10 @@ def create_platform_comparison(df):
 
 def create_temporal_trends(df):
     """Create temporal trends visualization"""
+    if df.empty:
+        st.warning("No temporal data available")
+        return None
+
     fig = make_subplots(
         rows=2, cols=1,
         subplot_titles=('Daily Mentions Over Time', 'Sentiment Trends'),
@@ -216,35 +587,98 @@ page = st.sidebar.radio("Choose a category", [
     "🏠 Overview",
     "🎤 Artist Trends",
     "🎶 Genre Analysis",
+    "☁️ Word Cloud",
     "📱 Platform Insights",
     "💭 Sentiment Deep Dive",
+    "📈 Trend Summary",
+    "🔍 AI Insights",
     "📊 Raw Data Explorer"
 ])
 
-# Get mock data for demonstration
-mock_artists, mock_genres, mock_platforms, mock_temporal = create_mock_data_if_needed()
+# Load real data
+try:
+    artist_data = get_artist_trends()
+    genre_data = get_genre_trends()
+    platform_data = get_platform_data()
+    temporal_data = get_temporal_data()
+    wordcloud_data = get_wordcloud_data()
+
+    overall_stats_df = get_overall_stats()
+    if overall_stats_df.empty:
+        st.error("Error loading overall statistics: No data returned.")
+        # Initialize with default/empty values or handle as appropriate
+        stats = pd.Series({
+            'total_extractions': 0, 'avg_sentiment': 0.0,
+            'unique_artists': 0, 'positive_count': 0,
+            'total_sentiment_count': 0
+        })
+    else:
+        stats = overall_stats_df.iloc[0]
+except Exception as e:
+    import traceback
+    st.error(f"Error loading data (see details below). Type: {type(e)}, Message: {str(e)}")
+    st.text("Full Traceback:")
+    st.text(traceback.format_exc())
+    st.stop()
+
+# New: Load trend summary and insights data
+try:
+    trend_summary_data = get_trend_summary_data()
+    insights_summary_data = get_insights_summary_data()
+
+    # Validate the data structure with better error handling
+    if trend_summary_data is not None:
+        if not isinstance(trend_summary_data, dict):
+            st.warning(f"Trend summary data has unexpected format. Got {type(trend_summary_data)}, expected dict.")
+            trend_summary_data = None
+        else:
+            for key, value in trend_summary_data.items():
+                if not isinstance(value, pd.DataFrame):
+                    st.warning(f"Trend summary data[{key}] has unexpected format. Got {type(value)}, expected DataFrame.")
+                    # Replace with empty DataFrame to prevent errors
+                    trend_summary_data[key] = pd.DataFrame()
+
+    if insights_summary_data is not None:
+        if not isinstance(insights_summary_data, dict):
+            st.warning(f"Insights summary data has unexpected format. Got {type(insights_summary_data)}, expected dict.")
+            insights_summary_data = None
+        else:
+            for key, value in insights_summary_data.items():
+                if not isinstance(value, pd.DataFrame):
+                    st.warning(f"Insights summary data[{key}] has unexpected format. Got {type(value)}, expected DataFrame.")
+                    # Replace with empty DataFrame to prevent errors
+                    insights_summary_data[key] = pd.DataFrame()
+
+except Exception as e:
+    st.error(f"Error loading summary data: {str(e)}")
+    import traceback
+    st.error(f"Traceback: {traceback.format_exc()}")
+    st.stop()
 
 if page == "🏠 Overview":
-    st.header("🌟 Japanese Music Social Media Landscape")
+    st.header("🌟 Music Social Media Landscape")
 
     # Key metrics row
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
-        total_mentions = mock_artists['mention_count'].sum()
-        st.metric("Total Mentions", f"{total_mentions:,}", "+12%")
+        total_mentions = int(stats['total_extractions']) if not pd.isna(stats['total_extractions']) else 0
+        st.metric("Total Extractions", f"{total_mentions:,}")
 
     with col2:
-        avg_sentiment = mock_artists['sentiment_score'].mean()
-        st.metric("Average Sentiment", f"{avg_sentiment:.1f}/10", "+0.3")
+        avg_sentiment = float(stats['avg_sentiment']) if not pd.isna(stats['avg_sentiment']) else 5.0
+        st.metric("Average Sentiment", f"{avg_sentiment:.1f}/10")
 
     with col3:
-        trending_artists = len(mock_artists[mock_artists['trend_direction'] == 'positive'])
-        st.metric("Trending Artists", trending_artists, "+2")
+        unique_artists = int(stats['unique_artists']) if not pd.isna(stats['unique_artists']) else 0
+        st.metric("Unique Artists", unique_artists)
 
     with col4:
-        top_engagement = mock_artists['engagement_level'].value_counts()['high']
-        st.metric("High Engagement Artists", top_engagement, "+1")
+        if stats['total_sentiment_count'] > 0:
+            positive_pct = (stats['positive_count'] / stats['total_sentiment_count']) * 100
+            st.metric("Positive Sentiment", f"{positive_pct:.1f}%")
+        else:
+            st.metric("Positive Sentiment", "N/A")
 
     st.markdown("---")
 
@@ -252,264 +686,624 @@ if page == "🏠 Overview":
     col1, col2 = st.columns([2, 1])
 
     with col1:
-        st.plotly_chart(create_artist_trends_chart(mock_artists), use_container_width=True)
+        if not artist_data.empty:
+            fig = create_artist_trends_chart(artist_data)
+            if fig:
+                st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("No artist data available")
 
     with col2:
         st.subheader("🔥 Top Trending Artists")
-        for i, (_, artist) in enumerate(mock_artists.head(5).iterrows()):
-            sentiment_color = "trend-positive" if artist['sentiment_score'] > 7.5 else "trend-neutral"
-            st.markdown(f"""
-            <div class="metric-card">
-                <strong>{i+1}. {artist['artist_name']}</strong><br>
-                <span class="{sentiment_color}">Sentiment: {artist['sentiment_score']:.1f}/10</span><br>
-                <small>Mentions: {artist['mention_count']} | Trend: {artist['trend_strength']:.2f}</small>
-            </div>
-            """, unsafe_allow_html=True)
-            st.markdown("<br>", unsafe_allow_html=True)
+        if not artist_data.empty:
+            for i, (_, artist) in enumerate(artist_data.head(5).iterrows()):
+                sentiment_color = "trend-positive" if artist['sentiment_score'] > 6.5 else "trend-neutral"
+                st.markdown(f"""
+                <div class="metric-card">
+                    <strong>{i+1}. {artist['artist_name']}</strong><br>
+                    <span class="{sentiment_color}">Sentiment: {artist['sentiment_score']:.1f}/10</span><br>
+                    <small>Mentions: {artist['mention_count']} | Trend: {artist['trend_strength']:.2f}</small>
+                </div>
+                """, unsafe_allow_html=True)
+                st.markdown("<br>", unsafe_allow_html=True)
+        else:
+            st.info("No artist trends data available")
 
     # Temporal overview
-    st.plotly_chart(create_temporal_trends(mock_temporal), use_container_width=True)
+    if not temporal_data.empty:
+        fig = create_temporal_trends(temporal_data)
+        if fig:
+            st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.info("No temporal data available")
+
+    # New: Trend summary overview
+    st.subheader("📊 Trend Summary Overview")
+    if trend_summary_data and 'overview' in trend_summary_data and not trend_summary_data['overview'].empty:
+        overview = trend_summary_data['overview'].iloc[0]
+
+        # Show analysis metrics
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            # Convert timestamp to string safely
+            analysis_date = str(overview['analysis_timestamp'])[:10] if pd.notna(overview['analysis_timestamp']) else "N/A"
+            st.metric("Analysis Date", analysis_date)
+        with col2:
+            total_artists = int(overview['total_artists_analyzed']) if pd.notna(overview['total_artists_analyzed']) else 0
+            st.metric("Artists Analyzed", f"{total_artists:,}")
+        with col3:
+            total_genres = int(overview['total_genres_analyzed']) if pd.notna(overview['total_genres_analyzed']) else 0
+            st.metric("Genres Analyzed", f"{total_genres:,}")
+        with col4:
+            time_periods = int(overview['time_periods_analyzed']) if pd.notna(overview['time_periods_analyzed']) else 0
+            st.metric("Time Periods", time_periods)
+
+        # Show trending artists count
+        if 'artists' in trend_summary_data and not trend_summary_data['artists'].empty:
+            artists_count = len(trend_summary_data['artists'])
+            st.metric("Top Trending Artists", artists_count)
+
+        # Show analysis settings
+        st.markdown("#### Analysis Configuration")
+        st.markdown(f"- **Minimum mentions for trend:** {overview['min_mentions_for_trend']}")
+        st.markdown(f"- **Positive sentiment threshold:** {overview['positive_sentiment_threshold']}")
+        st.markdown(f"- **Data source:** {overview['source_file']}")
+    else:
+        st.info("No trend summary data available")
 
 elif page == "🎤 Artist Trends":
     st.header("🎤 Artist Deep Dive")
 
-    # Artist selector
-    selected_artist = st.selectbox("Select an artist for detailed analysis:", mock_artists['artist_name'].tolist())
-    artist_data = mock_artists[mock_artists['artist_name'] == selected_artist].iloc[0]
+    if not artist_data.empty:
+        # Artist selector
+        selected_artist = st.selectbox("Select an artist for detailed analysis:", artist_data['artist_name'].tolist())
+        artist_info = artist_data[artist_data['artist_name'] == selected_artist].iloc[0]
 
-    # Artist overview
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("Total Mentions", artist_data['mention_count'])
-    with col2:
-        st.metric("Sentiment Score", f"{artist_data['sentiment_score']:.1f}/10")
-    with col3:
-        st.metric("Trend Strength", f"{artist_data['trend_strength']:.2f}")
+        # Artist overview
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Total Mentions", int(artist_info['mention_count']))
+        with col2:
+            st.metric("Sentiment Score", f"{artist_info['sentiment_score']:.1f}/10")
+        with col3:
+            st.metric("Trend Strength", f"{artist_info['trend_strength']:.2f}")
 
-    # Artist comparison chart
-    st.subheader("📊 Artist Comparison")
-    fig = px.bar(mock_artists.head(8),
-                 x='artist_name',
-                 y='mention_count',
-                 color='sentiment_score',
-                 title="Artist Mentions with Sentiment Coloring",
-                 color_continuous_scale='RdYlGn')
-    fig.update_layout(height=400)
-    st.plotly_chart(fig, use_container_width=True)
+        # Artist comparison chart
+        st.subheader("📊 Artist Comparison")
+        fig = px.bar(artist_data.head(10),
+                     x='artist_name',
+                     y='mention_count',
+                     color='sentiment_score',
+                     title="Artist Mentions with Sentiment Coloring",
+                     color_continuous_scale='RdYlGn')
+        fig.update_layout(height=400)
+        fig.update_xaxes(tickangle=45)
+        st.plotly_chart(fig, use_container_width=True)
 
-    # Platform presence
-    st.subheader("📱 Platform Presence")
-    platform_data = []
-    for platform in ['YouTube', 'Twitter', 'Reddit', 'TikTok']:
-        count = sum(1 for platforms in mock_artists['platforms'] if platform in platforms)
-        platform_data.append({'Platform': platform, 'Artist Count': count})
+        # Platform presence analysis
+        st.subheader("📱 Platform Analysis")
+        if not platform_data.empty:
+            col1, col2 = st.columns(2)
 
-    platform_df = pd.DataFrame(platform_data)
-    fig = px.pie(platform_df, values='Artist Count', names='Platform',
-                 title="Artist Distribution Across Platforms")
-    st.plotly_chart(fig, use_container_width=True)
+            with col1:
+                fig = px.pie(platform_data,
+                           values='total_mentions',
+                           names='platform',
+                           title="Mentions Distribution by Platform")
+                st.plotly_chart(fig, use_container_width=True)
+
+            with col2:
+                fig = px.bar(platform_data,
+                           x='platform',
+                           y='avg_sentiment',
+                           title="Average Sentiment by Platform",
+                           color='avg_sentiment',
+                           color_continuous_scale='RdYlGn')
+                st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("No platform data available")
+    else:
+        st.warning("No artist data available")
 
 elif page == "🎶 Genre Analysis":
     st.header("🎶 Genre Landscape Analysis")
 
-    col1, col2 = st.columns(2)
+    if not genre_data.empty:
+        col1, col2 = st.columns(2)
 
-    with col1:
-        st.plotly_chart(create_genre_radar_chart(mock_genres), use_container_width=True)
+        with col1:
+            fig = create_genre_radar_chart(genre_data)
+            if fig:
+                st.plotly_chart(fig, use_container_width=True)
 
-    with col2:
-        st.subheader("📈 Genre Performance Metrics")
+        with col2:
+            st.subheader("📈 Genre Performance Metrics")
 
-        # Genre rankings
-        for i, (_, genre) in enumerate(mock_genres.iterrows()):
-            progress_value = genre['trend_strength']
-            st.write(f"**{genre['genre']}**")
-            st.progress(progress_value)
-            col_a, col_b, col_c = st.columns(3)
-            with col_a:
-                st.caption(f"Mentions: {genre['mention_count']}")
-            with col_b:
-                st.caption(f"Sentiment: {genre['sentiment_score']:.1f}")
-            with col_c:
-                st.caption(f"Trend: {progress_value:.2f}")
-            st.markdown("<br>", unsafe_allow_html=True)
+            # Genre rankings
+            for i, (_, genre) in enumerate(genre_data.head(8).iterrows()):
+                progress_value = float(genre['trend_strength'])
+                st.write(f"**{genre['genre']}**")
+                st.progress(min(progress_value, 1.0))  # Cap at 1.0 for progress bar
+                col_a, col_b, col_c = st.columns(3)
+                with col_a:
+                    st.caption(f"Mentions: {int(genre['mention_count'])}")
+                with col_b:
+                    st.caption(f"Sentiment: {genre['sentiment_score']:.1f}")
+                with col_c:
+                    st.caption(f"Trend: {progress_value:.2f}")
+                st.markdown("<br>", unsafe_allow_html=True)
 
-    # Genre sentiment comparison
-    st.subheader("🎵 Genre Sentiment Analysis")
-    fig = px.box(mock_genres, y='sentiment_score', x='genre',
-                 title="Sentiment Distribution by Genre")
-    fig.update_layout(height=400)
-    st.plotly_chart(fig, use_container_width=True)
+        # Genre sentiment comparison
+        st.subheader("🎵 Genre Sentiment Analysis")
+        fig = px.bar(genre_data,
+                     x='genre',
+                     y='sentiment_score',
+                     color='mention_count',
+                     title="Sentiment Score by Genre",
+                     color_continuous_scale='viridis')
+        fig.update_layout(height=400)
+        fig.update_xaxes(tickangle=45)
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.warning("No genre data available")
+
+elif page == "☁️ Word Cloud":
+    st.header("☁️ Music Discussion Word Cloud")
+
+    if not wordcloud_data.empty:
+        st.subheader("🎵 Most Discussed Terms")
+
+        # Generate and display word cloud
+        fig = create_wordcloud_chart(wordcloud_data)
+        if fig:
+            st.pyplot(fig)
+
+        # Show top words table
+        st.subheader("📊 Top Words by Frequency")
+        top_words = wordcloud_data.head(20)
+
+        col1, col2 = st.columns(2)
+        with col1:
+            fig = px.bar(top_words.head(10),
+                        x='frequency',
+                        y='word',
+                        orientation='h',
+                        title="Top 10 Words",
+                        color='frequency',
+                        color_continuous_scale='viridis')
+            fig.update_layout(height=400)
+            st.plotly_chart(fig, use_container_width=True)
+
+        with col2:
+            st.dataframe(top_words[['word', 'frequency']],
+                        use_container_width=True,
+                        height=400)
+    else:
+        st.warning("No word cloud data available")
 
 elif page == "📱 Platform Insights":
     st.header("📱 Platform Performance Analysis")
 
-    st.plotly_chart(create_platform_comparison(mock_platforms), use_container_width=True)
+    if not platform_data.empty:
+        fig = create_platform_comparison(platform_data)
+        if fig:
+            st.plotly_chart(fig, use_container_width=True)
 
-    # Platform details
-    st.subheader("🔍 Platform Deep Dive")
+        # Platform details
+        st.subheader("🔍 Platform Deep Dive")
 
-    platform_tabs = st.tabs(["YouTube", "Twitter", "Reddit", "TikTok"])
+        # Create tabs for each platform
+        platform_names = platform_data['platform'].tolist()
+        platform_tabs = st.tabs([f"📊 {platform}" for platform in platform_names])
 
-    with platform_tabs[0]:  # YouTube
-        st.markdown("### 📺 YouTube Analytics")
-        col1, col2 = st.columns(2)
-        with col1:
-            st.metric("Total Mentions", "445", "+8%")
-            st.metric("Avg Sentiment", "8.1/10", "+0.2")
-        with col2:
-            st.metric("Active Artists", "12", "+1")
-            st.metric("Engagement Rate", "94%", "+3%")
+        for i, (tab, platform_name) in enumerate(zip(platform_tabs, platform_names)):
+            with tab:
+                platform_info = platform_data[platform_data['platform'] == platform_name].iloc[0]
 
-        # Mock YouTube-specific chart
-        youtube_data = pd.DataFrame({
-            'Content Type': ['Music Videos', 'Live Performances', 'Behind Scenes', 'Covers'],
-            'Mentions': [234, 123, 56, 32],
-            'Avg Sentiment': [8.3, 8.0, 7.8, 8.1]
-        })
-        fig = px.bar(youtube_data, x='Content Type', y='Mentions', color='Avg Sentiment',
-                     title="YouTube Content Type Performance")
-        st.plotly_chart(fig, use_container_width=True)
+                st.markdown(f"### {platform_name} Analytics")
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.metric("Total Mentions", int(platform_info['total_mentions']))
+                    st.metric("Avg Sentiment", f"{platform_info['avg_sentiment']:.1f}/10")
+                with col2:
+                    if 'active_artists' in platform_info and not pd.isna(platform_info['active_artists']):
+                        st.metric("Active Artists", int(platform_info['active_artists']))
+                    else:
+                        st.metric("Active Artists", "N/A")
 
-    with platform_tabs[1]:  # Twitter
-        st.markdown("### 🐦 Twitter Analytics")
-        col1, col2 = st.columns(2)
-        with col1:
-            st.metric("Total Mentions", "298", "+5%")
-            st.metric("Avg Sentiment", "7.8/10", "+0.1")
-        with col2:
-            st.metric("Active Artists", "15", "+2")
-            st.metric("Retweet Rate", "76%", "+4%")
-
-    with platform_tabs[2]:  # Reddit
-        st.markdown("### 📰 Reddit Analytics")
-        col1, col2 = st.columns(2)
-        with col1:
-            st.metric("Total Mentions", "167", "+3%")
-            st.metric("Avg Sentiment", "8.2/10", "+0.4")
-        with col2:
-            st.metric("Active Artists", "8", "0")
-            st.metric("Upvote Rate", "89%", "+2%")
-
-    with platform_tabs[3]:  # TikTok
-        st.markdown("### 🎵 TikTok Analytics")
-        col1, col2 = st.columns(2)
-        with col1:
-            st.metric("Total Mentions", "123", "+15%")
-            st.metric("Avg Sentiment", "7.9/10", "+0.3")
-        with col2:
-            st.metric("Active Artists", "10", "+3")
-            st.metric("Like Rate", "92%", "+5%")
+                # Platform-specific metrics would go here
+                st.info(f"Detailed {platform_name} analytics coming soon...")
+    else:
+        st.warning("No platform data available")
 
 elif page == "💭 Sentiment Deep Dive":
     st.header("💭 Sentiment Analysis Deep Dive")
 
-    # Overall sentiment distribution
-    sentiment_dist = mock_artists['trend_direction'].value_counts()
+    try:
+        # Get real sentiment data
+        sentiment_query = """
+        SELECT
+            overall_sentiment,
+            sentiment_strength,
+            COUNT(*) as count
+        FROM analytics.sentiment_analysis
+        WHERE overall_sentiment IS NOT NULL
+        GROUP BY overall_sentiment, sentiment_strength
+        ORDER BY overall_sentiment
+        """
+        sentiment_data_detailed = fetch_data(sentiment_query)
 
-    col1, col2 = st.columns(2)
+        # Get sentiment by artist
+        artist_sentiment_query = """
+        WITH artist_sentiment AS (
+            SELECT
+                jsonb_array_elements_text(ee.entities_artists) as artist_name,
+                sa.overall_sentiment,
+                sa.sentiment_strength
+            FROM analytics.entity_extraction ee
+            JOIN analytics.sentiment_analysis sa ON ee.original_text = sa.original_text
+            WHERE ee.entities_artists IS NOT NULL
+                AND sa.overall_sentiment IS NOT NULL
+                AND jsonb_array_length(ee.entities_artists) > 0
+        )
+        SELECT
+            artist_name,
+            overall_sentiment,
+            AVG(sentiment_strength) as avg_sentiment_score,
+            COUNT(*) as mention_count
+        FROM artist_sentiment
+        GROUP BY artist_name, overall_sentiment
+        HAVING COUNT(*) >= 5
+        ORDER BY mention_count DESC
+        LIMIT 50
+        """
+        artist_sentiment_data = fetch_data(artist_sentiment_query)
 
-    with col1:
-        fig = px.pie(values=sentiment_dist.values, names=sentiment_dist.index,
-                     title="Overall Sentiment Distribution",
-                     color_discrete_map={'positive': '#28a745', 'negative': '#dc3545', 'neutral': '#6c757d'})
-        st.plotly_chart(fig, use_container_width=True)
+        if not sentiment_data_detailed.empty:
+            st.subheader("🎯 Overall Sentiment Landscape")
 
-    with col2:
-        st.subheader("📊 Sentiment Insights")
-        positive_pct = (sentiment_dist.get('positive', 0) / len(mock_artists)) * 100
-        neutral_pct = (sentiment_dist.get('neutral', 0) / len(mock_artists)) * 100
-        negative_pct = (sentiment_dist.get('negative', 0) / len(mock_artists)) * 100
+            # Sentiment distribution
+            sentiment_dist = sentiment_data_detailed.groupby('overall_sentiment')['count'].sum()
 
-        st.markdown(f"""
-        <div class="metric-card">
-            <h4>Sentiment Breakdown</h4>
-            <p><span class="trend-positive">●</span> Positive: {positive_pct:.1f}%</p>
-            <p><span class="trend-neutral">●</span> Neutral: {neutral_pct:.1f}%</p>
-            <p><span class="trend-negative">●</span> Negative: {negative_pct:.1f}%</p>
-        </div>
-        """, unsafe_allow_html=True)
+            col1, col2 = st.columns(2)
 
-        avg_sentiment = mock_artists['sentiment_score'].mean()
-        if avg_sentiment >= 8:
-            sentiment_status = "🔥 Excellent"
-        elif avg_sentiment >= 7:
-            sentiment_status = "✅ Good"
-        elif avg_sentiment >= 6:
-            sentiment_status = "⚠️ Moderate"
+            with col1:
+                fig = px.pie(values=sentiment_dist.values, names=sentiment_dist.index,
+                           title="Overall Sentiment Distribution",
+                           color_discrete_map={'positive': '#28a745', 'negative': '#dc3545', 'neutral': '#6c757d'})
+                st.plotly_chart(fig, use_container_width=True)
+
+            with col2:
+                st.subheader("📊 Sentiment Insights")
+                total_count = sentiment_dist.sum()
+                positive_pct = (sentiment_dist.get('positive', 0) / total_count) * 100
+                neutral_pct = (sentiment_dist.get('neutral', 0) / total_count) * 100
+                negative_pct = (sentiment_dist.get('negative', 0) / total_count) * 100
+
+                st.markdown(f"""
+                <div class="metric-card">
+                    <h4>Sentiment Breakdown</h4>
+                    <p><span class="trend-positive">●</span> Positive: {positive_pct:.1f}%</p>
+                    <p><span class="trend-neutral">●</span> Neutral: {neutral_pct:.1f}%</p>
+                    <p><span class="trend-negative">●</span> Negative: {negative_pct:.1f}%</p>
+                </div>
+                """, unsafe_allow_html=True)
+
+                # Calculate overall health score
+                avg_sentiment = sentiment_data_detailed['sentiment_strength'].mean()
+                if avg_sentiment >= 0.7:
+                    sentiment_status = "🔥 Excellent"
+                elif avg_sentiment >= 0.5:
+                    sentiment_status = "✅ Good"
+                elif avg_sentiment >= 0.3:
+                    sentiment_status = "⚠️ Moderate"
+                else:
+                    sentiment_status = "❌ Poor"
+
+                st.markdown(f"""
+                <div class="metric-card">
+                    <h4>Overall Health</h4>
+                    <p>Status: {sentiment_status}</p>
+                    <p>Score: {avg_sentiment:.2f}/1.0</p>
+                </div>
+                """, unsafe_allow_html=True)
+
+            # Artist sentiment analysis
+            if not artist_sentiment_data.empty:
+                st.subheader("🎤 Artist Sentiment Analysis")
+
+                # Create sentiment heatmap
+                artist_pivot = artist_sentiment_data.pivot_table(
+                    index='artist_name',
+                    columns='overall_sentiment',
+                    values='mention_count',
+                    fill_value=0
+                ).head(15)
+
+                if not artist_pivot.empty:
+                    fig = px.imshow(artist_pivot.values,
+                                  labels=dict(x="Sentiment", y="Artist", color="Mentions"),
+                                  x=artist_pivot.columns,
+                                  y=artist_pivot.index,
+                                  color_continuous_scale='RdYlGn',
+                                  title="Artist Sentiment Heatmap")
+                    fig.update_layout(height=500)
+                    st.plotly_chart(fig, use_container_width=True)
+
+                # Top artists by sentiment score
+                top_artists = artist_sentiment_data.groupby('artist_name').agg({
+                    'avg_sentiment_score': 'mean',
+                    'mention_count': 'sum'
+                }).reset_index()
+                top_artists = top_artists.sort_values('avg_sentiment_score', ascending=False).head(10)
+
+                if not top_artists.empty:
+                    fig = px.bar(top_artists,
+                               x='artist_name',
+                               y='avg_sentiment_score',
+                               title="Top Artists by Average Sentiment Score",
+                               color='avg_sentiment_score',
+                               color_continuous_scale='RdYlGn')
+                    fig.update_layout(height=400)
+                    fig.update_xaxes(tickangle=45)
+                    st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("No artist sentiment data available")
+
+            # Sentiment vs Engagement correlation using real artist data
+            if not artist_data.empty:
+                st.subheader("🔗 Sentiment vs Engagement Correlation")
+                engagement_mapping = {'high': 3, 'medium': 2, 'low': 1}
+                correlation_data = artist_data.copy()
+                correlation_data['engagement_numeric'] = correlation_data['engagement_level'].map(engagement_mapping)
+
+                fig = px.scatter(correlation_data,
+                               x='sentiment_score',
+                               y='engagement_numeric',
+                               size='mention_count',
+                               hover_name='artist_name',
+                               title="Sentiment Score vs Engagement Level",
+                               labels={'sentiment_score': 'Sentiment Score', 'engagement_numeric': 'Engagement Level'})
+                st.plotly_chart(fig, use_container_width=True)
         else:
-            sentiment_status = "❌ Poor"
+            st.warning("No sentiment data available")
+    except Exception as e:
+        st.error(f"Error loading sentiment data: {str(e)}")
+        st.info("Please check the database connection and try again.")
 
-        st.markdown(f"""
-        <div class="metric-card">
-            <h4>Overall Health</h4>
-            <p>Status: {sentiment_status}</p>
-            <p>Score: {avg_sentiment:.1f}/10</p>
-        </div>
-        """, unsafe_allow_html=True)
+elif page == "📈 Trend Summary":
+    st.header("📈 AI-Generated Trend Summary")
 
-    # Sentiment vs Engagement correlation
-    st.subheader("🔗 Sentiment vs Engagement Correlation")
-    engagement_mapping = {'high': 3, 'medium': 2, 'low': 1}
-    correlation_data = mock_artists.copy()
-    correlation_data['engagement_numeric'] = correlation_data['engagement_level'].map(engagement_mapping)
+    if trend_summary_data and not trend_summary_data['overview'].empty:
+        # Overview Section
+        overview = trend_summary_data['overview'].iloc[0]
 
-    fig = px.scatter(correlation_data,
-                     x='sentiment_score',
-                     y='engagement_numeric',
-                     size='mention_count',
-                     hover_name='artist_name',
-                     title="Sentiment Score vs Engagement Level",
-                     labels={'sentiment_score': 'Sentiment Score', 'engagement_numeric': 'Engagement Level'})
-    st.plotly_chart(fig, use_container_width=True)
+        st.subheader("📊 Analysis Overview")
+        col1, col2, col3 = st.columns(3)
 
-elif page == "📊 Raw Data Explorer":
-    st.header("📊 Raw Data Explorer")
+        with col1:
+            # Convert timestamp to string safely
+            analysis_timestamp = pd.to_datetime(overview['analysis_timestamp'])
+            if pd.notna(analysis_timestamp):
+                analysis_date = analysis_timestamp.strftime("%Y-%m-%d")
+            else:
+                analysis_date = "N/A"
+            st.metric("Analysis Date", analysis_date)
+        with col2:
+            total_artists = int(overview['total_artists_analyzed']) if pd.notna(overview['total_artists_analyzed']) else 0
+            st.metric("Total Artists", f"{total_artists:,}")
+        with col3:
+            artists_count = len(trend_summary_data['artists']) if 'artists' in trend_summary_data and not trend_summary_data['artists'].empty else 0
+            st.metric("Top Artists Count", artists_count)
 
-    data_tabs = st.tabs(["🎤 Artist Data", "🎶 Genre Data", "📱 Platform Data", "📈 Temporal Data"])
+        # Top Trending Artists
+        st.subheader("🎤 Top Trending Artists")
+        if not trend_summary_data['artists'].empty:
+            artists_df = trend_summary_data['artists'].head(20)
 
-    with data_tabs[0]:
-        st.subheader("Artist Trends Data")
-        st.dataframe(mock_artists, use_container_width=True)
+            # Create an interactive chart
+            fig = px.bar(artists_df,
+                        x='trend_strength',
+                        y='artist_name',
+                        color='sentiment_score',
+                        orientation='h',
+                        title="Artist Trend Strength vs Sentiment",
+                        color_continuous_scale='RdYlGn',
+                        hover_data=['mentions', 'sentiment_direction'])
+            fig.update_layout(height=600)
+            st.plotly_chart(fig, use_container_width=True)
 
-        if st.button("📥 Download Artist Data"):
-            csv = mock_artists.to_csv(index=False)
-            st.download_button(
-                label="Download CSV",
-                data=csv,
-                file_name="japanese_artist_trends.csv",
-                mime="text/csv"
-            )
+            # Artists table with key metrics
+            st.subheader("📋 Detailed Artist Metrics")
+            display_artists = artists_df[['artist_name', 'trend_strength', 'mentions',
+                                        'sentiment_score', 'sentiment_direction']].copy()
+            display_artists.columns = ['Artist', 'Trend Strength', 'Mentions',
+                                     'Sentiment Score', 'Sentiment Direction']
+            st.dataframe(display_artists, use_container_width=True)
 
-    with data_tabs[1]:
-        st.subheader("Genre Analysis Data")
-        st.dataframe(mock_genres, use_container_width=True)
+        # Top Genres
+        if not trend_summary_data['genres'].empty:
+            st.subheader("🎶 Top Genres")
+            genres_df = trend_summary_data['genres'].head(10)
 
-    with data_tabs[2]:
-        st.subheader("Platform Metrics Data")
-        st.dataframe(mock_platforms, use_container_width=True)
+            # Genre popularity chart
+            fig = px.pie(genres_df,
+                        values='popularity_score',
+                        names='genre_name',
+                        title="Genre Popularity Distribution")
+            st.plotly_chart(fig, use_container_width=True)
 
-    with data_tabs[3]:
-        st.subheader("Temporal Trends Data")
-        st.dataframe(mock_temporal, use_container_width=True)
+        # Sentiment & Engagement Analytics
+        col1, col2 = st.columns(2)
 
-        # Interactive temporal chart
-        fig = px.line(mock_temporal, x='date', y='daily_mentions',
-                      title="Interactive Daily Mentions Timeline")
-        st.plotly_chart(fig, use_container_width=True)
+        with col1:
+            if not trend_summary_data['sentiment'].empty:
+                st.subheader("💭 Sentiment Patterns")
+                sentiment = trend_summary_data['sentiment'].iloc[0]
+
+                sentiment_data = pd.DataFrame({
+                    'Sentiment': ['Positive', 'Negative', 'Neutral'],
+                    'Trends': [sentiment['positive_trends'],
+                              sentiment['negative_trends'],
+                              sentiment['neutral_trends']]
+                })
+
+                fig = px.bar(sentiment_data, x='Sentiment', y='Trends',
+                           color='Sentiment',
+                           color_discrete_map={'Positive': 'green',
+                                             'Negative': 'red',
+                                             'Neutral': 'gray'})
+                st.plotly_chart(fig, use_container_width=True)
+
+        with col2:
+            if not trend_summary_data['engagement'].empty:
+                st.subheader("📊 Engagement Levels")
+                engagement = trend_summary_data['engagement'].iloc[0]
+
+                engagement_data = pd.DataFrame({
+                    'Level': ['High', 'Medium', 'Low'],
+                    'Count': [engagement['high_engagement'],
+                             engagement['medium_engagement'],
+                             engagement['low_engagement']]
+                })
+
+                fig = px.pie(engagement_data, values='Count', names='Level',
+                           title="Engagement Distribution",
+                           color_discrete_sequence=['#ff7f0e', '#2ca02c', '#d62728'])
+                st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.warning("No trend summary data available")
+
+elif page == "🔍 AI Insights":
+    st.header("🔍 AI-Generated Music Insights")
+
+    if insights_summary_data and 'overview' in insights_summary_data and not insights_summary_data['overview'].empty:
+        # Executive Summary
+        overview = insights_summary_data['overview'].iloc[0]
+
+        st.subheader("📋 Executive Summary")
+        col1, col2 = st.columns([2, 1])
+
+        with col1:
+            st.write(overview['executive_summary'])
+
+        with col2:
+            st.metric("Confidence Score", f"{overview['confidence_score']:.1%}")
+            # Convert timestamp to string safely
+            analysis_timestamp = pd.to_datetime(overview['analysis_timestamp'])
+            if pd.notna(analysis_timestamp):
+                analysis_date = analysis_timestamp.strftime("%Y-%m-%d")
+            else:
+                analysis_date = "N/A"
+            st.metric("Analysis Date", analysis_date)
+
+        # Key Findings
+        if 'findings' in insights_summary_data and not insights_summary_data['findings'].empty:
+            st.subheader("🔑 Key Findings")
+
+            findings = insights_summary_data['findings']
+            for _, finding in findings.iterrows():
+                st.write(f"**{finding['finding_order']}.** {finding['finding_text']}")
+
+        # Artist-Specific Insights
+        if 'artist_insights' in insights_summary_data and not insights_summary_data['artist_insights'].empty:
+            st.subheader("🎤 Artist-Specific Insights")
+
+            artist_insights = insights_summary_data['artist_insights']
+
+            # Create a searchable artist selector
+            unique_artists = artist_insights['artist_name'].unique()
+            selected_artist = st.selectbox("Select an artist for detailed insights:",
+                                         ['All Artists'] + list(unique_artists))
+
+            if selected_artist == 'All Artists':
+                # Show summary statistics
+                st.write(f"**Total Artists with Insights:** {len(unique_artists)}")
+
+                # Create a word cloud from all insights
+                insights_text_list = artist_insights['insight_text'].tolist()
+                if insights_text_list:  # Check if list is not empty
+                    all_insights_text = ' '.join(insights_text_list)
+
+                    try:
+                        from wordcloud import WordCloud
+                        import matplotlib.pyplot as plt
+
+                        if all_insights_text.strip():  # Check if text is not just whitespace
+                            wordcloud = WordCloud(width=800, height=400,
+                                                background_color='white',
+                                                colormap='viridis').generate(all_insights_text)
+
+                            fig, ax = plt.subplots(figsize=(10, 5))
+                            ax.imshow(wordcloud, interpolation='bilinear')
+                            ax.axis('off')
+                            st.pyplot(fig)
+                        else:
+                            st.warning("No text available for word cloud generation")
+                    except Exception as e:
+                        st.error(f"Error generating word cloud: {e}")
+                else:
+                    st.warning("No insights text available for word cloud")
+
+                # Show all insights in an expandable format
+                st.subheader("📝 All Artist Insights")
+                for _, insight in artist_insights.iterrows():
+                    with st.expander(f"🎵 {insight['artist_name']}"):
+                        st.write(insight['insight_text'])
+            else:
+                # Show insights for selected artist
+                artist_data = artist_insights[artist_insights['artist_name'] == selected_artist]
+
+                if not artist_data.empty:
+                    st.write(f"**Insights for {selected_artist}:**")
+                    for _, insight in artist_data.iterrows():
+                        st.write(insight['insight_text'])
+                else:
+                    st.warning(f"No insights available for {selected_artist}")
+    else:
+        st.warning("No AI insights data available")
 
 # Sidebar additional info
 st.sidebar.markdown("---")
 st.sidebar.markdown("### 📊 Dashboard Stats")
-st.sidebar.metric("Last Updated", "2025-06-01 10:30 JST")
-st.sidebar.metric("Data Points", "1,234")
-st.sidebar.metric("Active Artists", "25")
+current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M JST")
+st.sidebar.metric("Last Updated", current_time)
+
+try:
+    total_data_points = int(stats['total_extractions']) if not pd.isna(stats['total_extractions']) else 0
+    st.sidebar.metric("Data Points", f"{total_data_points:,}")
+
+    active_artists = int(stats['unique_artists']) if not pd.isna(stats['unique_artists']) else 0
+    st.sidebar.metric("Active Artists", active_artists)
+except:
+    st.sidebar.metric("Data Points", "Loading...")
+    st.sidebar.metric("Active Artists", "Loading...")
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("### 🎯 Quick Insights")
-st.sidebar.success("YOASOBI leads with 156 mentions")
-st.sidebar.info("J-Pop dominates genre trends")
-st.sidebar.warning("Monitor City Pop growth")
+
+try:
+    if not artist_data.empty:
+        top_artist = artist_data.iloc[0]
+        st.sidebar.success(f"{top_artist['artist_name']} leads with {top_artist['mention_count']} mentions")
+    else:
+        st.sidebar.info("No artist data available")
+
+    if not genre_data.empty:
+        top_genre = genre_data.iloc[0]
+        st.sidebar.info(f"{top_genre['genre']} dominates genre trends")
+    else:
+        st.sidebar.info("No genre data available")
+
+    if not platform_data.empty:
+        fastest_growing = platform_data.sort_values('total_mentions', ascending=False).iloc[0]
+        st.sidebar.warning(f"Monitor {fastest_growing['platform']} growth")
+    else:
+        st.sidebar.warning("Monitor platform trends")
+except Exception as e:
+    st.sidebar.info("Loading insights...")
+    st.sidebar.info("Real-time analytics")
+    st.sidebar.info("Database connected")
 
 # Footer
 st.markdown("---")

@@ -47,12 +47,14 @@ poetry run python llm_enrichment/trend/trend_detection_standalone.py \
     --input_file /home/florent.bossart/code/florent-bossart/social_media_tracker/data/intermediate/sentiment_analysis/youtube_combined_sentiment_original_data_20250531_011803.csv \
     --output_dir /home/florent.bossart/code/florent-bossart/social_media_tracker/data/intermediate/trend_analysis/ \
     --ollama-host "https://67cdbb6816d8.ngrok.app"
-    
+
 poetry run python llm_enrichment/trend/trend_detection_standalone.py \
     --input_file /home/florent.bossart/code/florent-bossart/social_media_tracker/data/intermediate/sentiment_analysis/reddit_sentiment_results_YYYYMMDD_HHMMSS.csv \
     --output_dir /home/florent.bossart/code/florent-bossart/social_media_tracker/data/intermediate/trend_analysis/ \
     --ollama-host "https://a37c4718d85c.ngrok.app"
 
+
+poetry run python /home/florent.bossart/code/florent-bossart/social_media_tracker/llm_enrichment/trend/trend_detection_combined_standalone.py --input_file_youtube /home/florent.bossart/code/florent-bossart/social_media_tracker/data/intermediate/sentiment_analysis/youtube_combined_sentiment_original_data_20250531_011803.csv --input_file_reddit /home/florent.bossart/code/florent-bossart/social_media_tracker/data/intermediate/sentiment_analysis/reddit_combined_sentiment_original_data_20250531_013333.csv --output_dir /home/florent.bossart/code/florent-bossart/social_media_tracker/data/intermediate/trend_analysis --log_level INFO
 
 
 summarization :
@@ -62,7 +64,7 @@ poetry run python llm_enrichment/summarization/summarization_standalone.py \
     --output_dir /home/florent.bossart/code/florent-bossart/social_media_tracker/data/intermediate/summarization/ \
     --ollama-host "https://7f15e672cfd91e69daf5f01491eeca50.serveo.net"
 
-
+poetry run python llm_enrichment/summarization/summarization_standalone.py --input-dir /home/florent.bossart/code/florent-bossart/social_media_tracker/data/intermediate/trend_analysis/ --output-dir /home/florent.bossart/code/florent-bossart/social_media_tracker/data/intermediate/summarization/ --date-tag 20250531 --source-tag combined
 
 
 MY laptop = "https://3739-153-240-201-12.ngrok-free.app"
@@ -92,3 +94,25 @@ poetry run python data_pipeline/run_complete_pipeline.py \
 
 tunnel :
 ssh -R 80:localhost:11434 serveo.net
+
+
+
+
+
+Load files with test summarization :
+poetry run python data_pipeline/load_analytics_data.py \
+--entities-file-reddit /home/florent.bossart/code/florent-bossart/social_media_tracker/data/intermediate/entity_extraction/20250530_reddit_entities.csv \
+--entities-file-youtube /home/florent.bossart/code/florent-bossart/social_media_tracker/data/intermediate/entity_extraction/20250530_youtube_entities.csv \
+--sentiment-file-reddit /home/florent.bossart/code/florent-bossart/social_media_tracker/data/intermediate/sentiment_analysis/reddit_sentiment_results_20250531_013333.csv \
+--sentiment-file-youtube /home/florent.bossart/code/florent-bossart/social_media_tracker/data/intermediate/sentiment_analysis/youtube_sentiment_results_20250531_011803.csv \
+--artist-trends-file /home/florent.bossart/code/florent-bossart/social_media_tracker/data/intermediate/trend_analysis/artist_trends_20250531_combined.csv \
+--genre-trends-file /home/florent.bossart/code/florent-bossart/social_media_tracker/data/intermediate/trend_analysis/genre_trends_20250531_combined.csv \
+--temporal-trends-file /home/florent.bossart/code/florent-bossart/social_media_tracker/data/intermediate/trend_analysis/temporal_trends_20250531_combined.csv \
+--trend-summary-json /home/florent.bossart/code/florent-bossart/social_media_tracker/data/intermediate/trend_analysis/trend_summary_20250531_combined.json \
+--summarization-metrics-file /home/florent.bossart/code/florent-bossart/social_media_tracker/sample_data/summaries/trend_insights_20250601_testsource_metrics.csv \
+--insights-summary-json /home/florent.bossart/code/florent-bossart/social_media_tracker/sample_data/summaries/trend_insights_20250601_testsource.json \
+--truncate
+
+
+
+poetry run python data_pipeline/load_analytics_data.py --entities-file-reddit /home/florent.bossart/code/florent-bossart/social_media_tracker/data/intermediate/entity_extraction/20250530_reddit_entities.csv --entities-file-youtube /home/florent.bossart/code/florent-bossart/social_media_tracker/data/intermediate/entity_extraction/20250530_youtube_entities.csv --sentiment-file-reddit /home/florent.bossart/code/florent-bossart/social_media_tracker/data/intermediate/sentiment_analysis/reddit_sentiment_results_20250531_013333.csv --sentiment-file-youtube /home/florent.bossart/code/florent-bossart/social_media_tracker/data/intermediate/sentiment_analysis/youtube_sentiment_results_20250531_011803.csv --artist-trends-file /home/florent.bossart/code/florent-bossart/social_media_tracker/data/intermediate/trend_analysis/artist_trends_20250531_combined.csv --genre-trends-file /home/florent.bossart/code/florent-bossart/social_media_tracker/data/intermediate/trend_analysis/genre_trends_20250531_combined.csv --temporal-trends-file /home/florent.bossart/code/florent-bossart/social_media_tracker/data/intermediate/trend_analysis/temporal_trends_20250531_combined.csv --trend-summary-json /home/florent.bossart/code/florent-bossart/social_media_tracker/data/intermediate/trend_analysis/trend_summary_20250531_combined.json --summarization-metrics-file /home/florent.bossart/code/florent-bossart/social_media_tracker/data/intermediate/summarization/trend_insights_20250531_combined_metrics.csv --insights-summary-json /home/florent.bossart/code/florent-bossart/social_media_tracker/data/intermediate/summarization/trend_insights_20250531_combined.json --truncate
