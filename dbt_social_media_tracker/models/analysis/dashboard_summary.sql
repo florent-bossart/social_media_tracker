@@ -16,9 +16,9 @@ SELECT
         SELECT
             count(*) AS count
         FROM
-            {{ source('analytics', 'trend_analysis') }}
+            {{ source('analytics', 'artist_trends') }}
         WHERE
-            trend_analysis.trend_direction = 'up'
+            artist_trends.trend_direction = 'positive'
     ) AS trending_up_count,
     (
         SELECT
@@ -28,9 +28,11 @@ SELECT
     ) AS avg_sentiment,
     (
         SELECT
-            round(avg(summarization_metrics.confidence_score)::numeric, 2) AS round
+            round(avg(cast(summarization_metrics.value as numeric))::numeric, 2) AS round
         FROM
             {{ source('analytics', 'summarization_metrics') }}
+        WHERE
+            summarization_metrics.metric = 'confidence_score'
     ) AS avg_confidence,
     (
         SELECT

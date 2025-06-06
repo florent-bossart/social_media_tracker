@@ -1,0 +1,26 @@
+[tool.poetry]
+name = "dashboard"
+version = "0.1.0"
+description = "Streamlit dashboard for social media tracker"
+authors = ["Your Name <you@example.com>"]
+
+[tool.poetry.dependencies]
+python = ">=3.9,<3.13"
+streamlit = "^1.0"  # Adjust version as needed, e.g., ^1.45.1 based on previous logs
+pandas = ">=1.5,<2.0"    # Force pandas 1.x for SQLAlchemy 1.4 compatibility
+numpy = "1.24.4"   # Pin numpy to compatible version for pandas compatibility
+sqlalchemy = ">=1.4,<2.0" # Explicitly pin to 1.4.x for pandas 1.5.3 compatibility
+psycopg2-binary = "^2.9" # For PostgreSQL connection
+python-dotenv = "^0.20" # For .env file handling
+wordcloud = "^1.9.0" # For generating word clouds
+matplotlib = "^3.5.0" # For wordcloud visualization
+pillow = "^9.0.0" # For image processing
+plotly = "^5.15.0" # For interactive visualizations
+seaborn = "^0.12.0" # For statistical visualizations
+
+[tool.poetry.group.dev.dependencies]
+# Add any development-specific dependencies here if needed later
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

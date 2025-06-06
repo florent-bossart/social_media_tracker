@@ -5,13 +5,17 @@ models:
     description: >
       Reddit posts with cleaned and normalized fields, extracted URLs, and text features for downstream analytics and LLM/AI processing.
     columns:
-      - name: id
+      - name: post_id
         description: The unique ID of the Reddit post.
         tests:
           - not_null
           - unique
       - name: post_url
         description: url used to add post ids in comments, to then join on IDs instead of URL
+      - name: source
+        description: "The subreddit from which the post originated (e.g., 'news', 'python')."
+        tests:
+          - not_null
       - name: title_clean
         description: Lowercased and trimmed title of the post.
       - name: author_clean

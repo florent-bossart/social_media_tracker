@@ -6,9 +6,10 @@ post_hook=[
     ]
 )}}
 
-SELECT
+SELECT distinct
     id AS post_id,
     url AS post_url,
+    source, -- Added subreddit source
     LOWER(TRIM(title)) AS title_clean,
     LOWER(TRIM(author)) AS author_clean,
     selftext,

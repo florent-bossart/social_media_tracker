@@ -6,7 +6,17 @@ WITH entity_extraction AS (
 ),
 
 sentiment_analysis AS (
-    SELECT * FROM {{ source('analytics', 'sentiment_analysis') }}
+    SELECT
+        id,
+        source_platform,
+        original_text,
+        sentiment_strength AS sentiment_score,
+        overall_sentiment AS sentiment_label,
+        sentiment_reasoning,
+        artist_sentiment,
+        confidence_score,
+        analysis_date
+    FROM {{ source('analytics', 'sentiment_analysis') }}
 )
 
 SELECT
@@ -21,22 +31,28 @@ SELECT
     ee.entities_songs_count,
     ee.entities_genres,
     ee.entities_genres_count,
-    -- Add other entity fields as needed
+    ee.entities_song_indicators,
+    ee.entities_song_indicators_count,
+    ee.entities_sentiment_indicators,
+    ee.entities_sentiment_indicators_count,
+    ee.entities_music_events,
+    ee.entities_music_events_count,
+    ee.entities_temporal_references,
+    ee.entities_temporal_references_count,
+    ee.entities_other_entities,
+    ee.entities_other_entities_count,
 
     sa.id AS sentiment_analysis_id,
     sa.sentiment_score,
     sa.sentiment_label,
     sa.sentiment_reasoning,
     sa.artist_sentiment,
-    sa.genre_sentiment,
-    sa.overall_sentiment AS sentiment_overall,
     sa.confidence_score AS sentiment_confidence_score,
     sa.analysis_date AS sentiment_analysis_date
 FROM
     entity_extraction ee
 LEFT JOIN
     sentiment_analysis sa ON ee.original_text = sa.original_text AND ee.source_platform = sa.source_platform
-    -- Note: Joining on original_text and source_platform.
     -- Consider a more robust join key if available, e.g., a shared comment_id
     -- if entities and sentiments are linked to a common source record.
     -- If original_text is very long, this join could be inefficient or inexact.

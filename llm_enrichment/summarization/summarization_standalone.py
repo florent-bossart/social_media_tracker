@@ -17,43 +17,90 @@ from typing import Dict, List, Optional, Any
 from pathlib import Path
 import requests
 import time
-import argparse  # Added argparse
+import argparse
+from dataclasses import dataclass
+import sys
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO) # Ensure logger level is set
+if not logger.hasHandlers(): # Add handler only if none exist
+    handler = logging.StreamHandler(sys.stdout) # Explicitly output to stdout
+    handler.setLevel(logging.INFO)
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+else: # If handlers exist, ensure at least one is for stdout at the correct level
+    has_stdout_handler = False
+    for h in logger.handlers:
+        if hasattr(h, 'stream') and h.stream == sys.stdout:
+            has_stdout_handler = True
+            h.setLevel(logging.INFO) # Ensure existing stdout handler is at INFO
+            if not h.formatter: # Add formatter if missing
+                 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+                 h.setFormatter(formatter)
+            break
+    if not has_stdout_handler: # If no stdout handler, add one
+        handler = logging.StreamHandler(sys.stdout)
+        handler.setLevel(logging.INFO)
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
 
+@dataclass
+class SummaryConfig:
+    """Configuration for the summarization process."""
+    ollama_host: str = "http://localhost:11434"
+    ollama_model: str = "llama3:8b"  # Changed from llama3.1:8b
+    ollama_timeout: int = 60
+    max_retries: int = 3
+    temperature: float = 0.7  # Added temperature
+    max_tokens: int = 1024    # Added max_tokens
+@dataclass
+class TrendSummary:
+    """Comprehensive trend summary data structure"""
+    executive_summary: str
+    key_findings: List[str]
+    artist_insights: List[str]
+    genre_insights: List[str]
+    temporal_insights: List[str] # Added for temporal insights
+    sentiment_analysis: str
+    platform_analysis: str
+    recommendations: List[str]
+    market_implications: List[str]
+    timestamp: str
+    data_period: str
+    confidence_score: float
 class TrendSummarizer:
     """
     Standalone Trend Summarizer - Generates natural language summaries and insights
     """
 
-    def __init__(self, ollama_url: str = "http://localhost:11434", model_name: str = "llama3.1:8b"):
-        self.ollama_url = ollama_url
-        self.model_name = model_name
-        self.max_tokens = 1000
-        self.temperature = 0.7
-        self.timeout = 60
+    def __init__(self, config: Optional[SummaryConfig] = None, ollama_host_override: Optional[str] = None): # Renamed ollama_host to ollama_host_override for clarity
+        self.config = config or SummaryConfig()
+        if ollama_host_override: # Check for the override
+            self.config.ollama_host = ollama_host_override # Corrected attribute name
         self.ollama_available = self._check_ollama_availability()
 
     def _check_ollama_availability(self) -> bool:
         """Check if Ollama service is available"""
         try:
-            response = requests.get(f"{self.ollama_url}/api/tags", timeout=5)
+            response = requests.get(f"{self.config.ollama_host}/api/tags", timeout=5) # Corrected attribute: ollama_host
             if response.status_code == 200:
                 models = [model['name'] for model in response.json().get('models', [])]
-                if self.model_name in models:
-                    logger.info(f"✅ Ollama service available with {self.model_name}")
+                if self.config.ollama_model in models: # Corrected attribute: ollama_model
+                    logger.info(f"✅ Ollama service available with {self.config.ollama_model} at {self.config.ollama_host}") # Corrected attributes
                     return True
                 else:
-                    logger.warning(f"⚠️ Model {self.model_name} not found in Ollama")
+                    logger.warning(f"⚠️ Model {self.config.ollama_model} not found in Ollama at {self.config.ollama_host}") # Corrected attributes
                     return False
+            logger.warning(f"⚠️ Ollama service at {self.config.ollama_host} responded with status {response.status_code}") # Corrected attribute
             return False
         except Exception as e:
-            logger.warning(f"⚠️ Ollama service not available: {e}")
+            logger.warning(f"⚠️ Ollama service not available at {self.config.ollama_host}: {e}") # Corrected attribute
             return False
 
-    def load_trend_data(self, trend_summary_path: str, artist_trends_path: str) -> Dict[str, Any]:
+    def load_trend_data(self, trend_summary_path: Path, artist_trends_path: Path, genre_trends_path: Path, temporal_trends_path: Path) -> Dict[str, Any]:
         """Load trend detection results from JSON and CSV files"""
         try:
             # Load trend summary
@@ -67,11 +114,27 @@ class TrendSummarizer:
                 for row in reader:
                     artist_trends.append(row)
 
-            logger.info(f"📊 Loaded trend data: {len(artist_trends)} artists, summary from {trend_summary.get('analysis_timestamp', 'unknown')}")
+            # Load genre trends
+            genre_trends = []
+            with open(genre_trends_path, 'r', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    genre_trends.append(row)
+
+            # Load temporal trends
+            temporal_trends = []
+            with open(temporal_trends_path, 'r', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    temporal_trends.append(row)
+
+            logger.info(f"📊 Loaded trend data: {len(artist_trends)} artists, {len(genre_trends)} genres, {len(temporal_trends)} temporal points, summary from {trend_summary.get('analysis_timestamp', 'unknown')}")
 
             return {
                 'summary': trend_summary,
                 'artist_trends': artist_trends,
+                'genre_trends': genre_trends,
+                'temporal_trends': temporal_trends,
                 'loaded_at': datetime.now().isoformat()
             }
 
@@ -82,53 +145,41 @@ class TrendSummarizer:
     def _query_ollama(self, prompt: str) -> str:
         """Send prompt to Ollama and get response"""
         if not self.ollama_available:
-            return self._generate_fallback_response(prompt)
+            return self._generate_fallback_summary(prompt)
 
         try:
             payload = {
-                "model": self.model_name,
+                "model": self.config.ollama_model, # Corrected attribute: ollama_model
                 "prompt": prompt,
                 "stream": False,
                 "options": {
-                    "temperature": self.temperature,
-                    "num_predict": self.max_tokens
+                    "temperature": self.config.temperature,
+                    "num_predict": self.config.max_tokens
                 }
             }
 
-            logger.debug(f"🤖 Querying Ollama with {len(prompt)} character prompt...")
+            logger.debug(f"🤖 Querying Ollama ({self.config.ollama_host}) with {len(prompt)} character prompt...") # Corrected attribute: ollama_host
             response = requests.post(
-                f"{self.ollama_url}/api/generate",
+                f"{self.config.ollama_host}/api/generate", # Corrected attribute: ollama_host
                 json=payload,
-                timeout=self.timeout
+                timeout=self.config.ollama_timeout
             )
 
             if response.status_code == 200:
                 result = response.json()
                 return result.get('response', '').strip()
             else:
-                logger.error(f"❌ Ollama API error: {response.status_code}")
-                return self._generate_fallback_response(prompt)
+                logger.error(f"❌ Ollama API error ({self.config.ollama_host}): {response.status_code} - {response.text}")
+                return self._generate_fallback_summary(prompt) # Changed to _generate_fallback_summary
 
         except Exception as e:
-            logger.error(f"❌ Error querying Ollama: {e}")
-            return self._generate_fallback_response(prompt)
+            logger.error(f"❌ Error querying Ollama ({self.config.ollama_host}): {e}")
+            return self._generate_fallback_summary(prompt) # Changed to _generate_fallback_summary
 
-    def _generate_fallback_response(self, prompt: str) -> str:
-        """Generate basic response when Ollama is not available"""
-        if "executive summary" in prompt.lower():
-            return "The analysis shows emerging trends in Japanese music social media engagement. Current data indicates moderate artist activity with neutral sentiment patterns. Further analysis with larger datasets would provide more comprehensive insights."
-        elif "artist" in prompt.lower() and "insight" in prompt.lower():
-            return "Shows moderate social media presence with neutral fan engagement. The trend data suggests stable but not explosive growth in online mentions and discussions."
-        elif "sentiment" in prompt.lower():
-            return "The sentiment patterns indicate a balanced engagement landscape with neutral emotional responses dominating the conversation around Japanese music trends."
-        elif "platform" in prompt.lower():
-            return "Platform analysis shows concentration on specific social media channels, indicating focused fan engagement patterns typical of Japanese music fandoms."
-        elif "recommendation" in prompt.lower():
-            return "1. Monitor emerging trends more closely\n2. Engage with fan communities on active platforms\n3. Track sentiment shifts over time\n4. Expand social media presence strategically"
-        elif "market" in prompt.lower():
-            return "- Social media engagement patterns suggest evolving fan behavior\n- Platform preferences indicate changing consumption habits\n- Sentiment neutrality may indicate opportunity for increased engagement"
-        else:
-            return "Analysis indicates moderate trends with opportunities for enhanced engagement and monitoring."
+    def _generate_fallback_summary(self, prompt: str) -> str: # Renamed and simplified
+        """Generate basic summary when Ollama is not available"""
+        logger.warning(f"⚠️ Using fallback summary for prompt: '{prompt[:100]}...'")
+        return "Trend analysis summary (fallback mode): Basic trend detection completed. For detailed AI-generated insights, ensure Ollama service is running and configured correctly."
 
     def generate_executive_summary(self, trend_data: Dict[str, Any]) -> str:
         """Generate executive summary of trends"""
@@ -157,7 +208,7 @@ Keep it data-driven, professional, and focused on actionable insights for music 
         insights = []
 
         for artist in artist_trends:
-            prompt = f"""Analyze this Japanese music artist's social media trend data and provide professional insights:
+            prompt = f"""Analyze this Japanese music artist\\'s social media trend data and provide professional insights:
 
 ARTIST DATA:
 - Name: {artist['entity_name']}
@@ -168,7 +219,7 @@ ARTIST DATA:
 - Engagement Level: {artist['engagement_level']}
 
 Generate a concise 2-sentence professional insight about:
-1. This artist's current trending status and momentum
+1. This artist\\'s current trending status and momentum
 2. What this data indicates about their popularity in the Japanese music landscape
 
 Focus on concrete observations and industry implications."""
@@ -176,6 +227,103 @@ Focus on concrete observations and industry implications."""
             insight = self._query_ollama(prompt)
             if insight and len(insight) > 20:  # Basic validation
                 insights.append(f"**{artist['entity_name']}**: {insight}")
+
+        return insights
+
+    def generate_genre_insights(self, trend_data: Dict[str, Any]) -> List[str]:
+        """Generate insights about individual genres"""
+        genre_trends = trend_data.get('genre_trends', [])
+        insights = []
+
+        if not genre_trends:
+            logger.info("No genre trend data found to generate insights.")
+            return insights
+
+        for genre_data in genre_trends:
+            # Assuming genre_data is a dictionary similar to artist data
+            # Adjust keys based on actual structure of genre_trends CSV
+            genre_name = genre_data.get('genre_name') or genre_data.get('entity_name') # Adapt as per actual CSV header
+            if not genre_name:
+                logger.warning(f"Skipping genre insight generation for entry with missing name: {genre_data}")
+                continue
+
+            prompt = f"""Analyze this Japanese music genre\\'s social media trend data and provide professional insights:
+
+GENRE DATA:
+- Name: {genre_name}
+- Mentions: {genre_data.get('mention_count', 'N/A')}
+- Sentiment Score: {genre_data.get('sentiment_score', 'N/A')}
+- Trend Strength: {genre_data.get('trend_strength', 'N/A')}
+- Associated Artists Count: {genre_data.get('associated_artists_count', 'N/A')}
+- Key Themes: {genre_data.get('key_themes', 'N/A')}
+
+Generate a concise 2-sentence professional insight about:
+1. This genre\\'s current trending status and momentum within the Japanese music scene.
+2. What this data indicates about its popularity and evolution.
+
+Focus on concrete observations and industry implications for this genre."""
+
+            insight = self._query_ollama(prompt)
+            if insight and len(insight) > 20:  # Basic validation
+                insights.append(f"**{genre_name}**: {insight}")
+            elif not self.ollama_available: # If fallback, still add a basic entry
+                insights.append(f"**{genre_name}**: Basic trend data processed (LLM fallback).")
+
+
+        return insights
+
+    def generate_temporal_insights(self, trend_data: Dict[str, Any]) -> List[str]:
+        """Generate insights about temporal trends"""
+        temporal_trends = trend_data.get('temporal_trends', [])
+        insights = []
+
+        if not temporal_trends:
+            logger.info("No temporal trend data found to generate insights.")
+            return insights
+
+        # Consolidate temporal data for a summary prompt if too many data points
+        # For now, let's assume we can process a few key points or a summary of them
+        # This might involve selecting peak periods, significant changes, or overall trend direction.
+
+        # Example: Create a summarized view of temporal data for the prompt
+        # This is a placeholder. Actual summarization logic might be more complex.
+        simplified_temporal_data = []
+        if len(temporal_trends) > 5: # If more than 5 data points, summarize
+            # This is a very basic summarization.
+            # A more sophisticated approach might identify key periods (start, peak, end)
+            # or calculate overall trend slopes.
+            first_point = temporal_trends[0]
+            last_point = temporal_trends[-1]
+            peak_point = max(temporal_trends, key=lambda x: float(x.get('value', 0) or 0)) # Ensure value is float
+            simplified_temporal_data.append(f"Start: Period {first_point.get('period', 'N/A')} - Value {first_point.get('value', 'N/A')}")
+            simplified_temporal_data.append(f"Peak: Period {peak_point.get('period', 'N/A')} - Value {peak_point.get('value', 'N/A')}")
+            simplified_temporal_data.append(f"End: Period {last_point.get('period', 'N/A')} - Value {last_point.get('value', 'N/A')}")
+            num_periods = len(temporal_trends)
+            overall_change = float(last_point.get('value', 0) or 0) - float(first_point.get('value', 0) or 0)
+            simplified_temporal_data.append(f"Overall trend across {num_periods} periods: Change of {overall_change:.2f}")
+        else:
+            for point in temporal_trends:
+                simplified_temporal_data.append(f"Period: {point.get('period', 'N/A')}, Value: {point.get('value', 'N/A')}, Change: {point.get('change', 'N/A')}")
+
+        temporal_data_str = "\\n".join(simplified_temporal_data)
+
+        prompt = f"""Analyze the temporal trends in Japanese music social media activity based on the following data points:
+
+TEMPORAL DATA:
+{temporal_data_str}
+
+Generate a concise 2-3 sentence professional insight about:
+1. The overall evolution of social media activity over the observed periods.
+2. Any significant peaks, troughs, or patterns of change.
+3. What this temporal data suggests about fan engagement dynamics or market shifts over time.
+
+Focus on concrete observations and their implications for understanding music trends in Japan."""
+
+        insight = self._query_ollama(prompt)
+        if insight and len(insight) > 20:
+            insights.append(insight)
+        elif not self.ollama_available:
+            insights.append("Temporal trend data processed (LLM fallback).")
 
         return insights
 
@@ -201,17 +349,15 @@ Focus on actionable insights and industry context."""
 
     def generate_platform_analysis(self, trend_data: Dict[str, Any]) -> str:
         """Analyze platform-specific trends"""
-        # Extract platform information from artist trends
         platforms = set()
         for artist in trend_data['artist_trends']:
             platform_list = artist.get('platforms', '[]')
             if isinstance(platform_list, str):
                 try:
-                    # Handle string representation of list
                     if platform_list.startswith('[') and platform_list.endswith(']'):
                         platform_list = eval(platform_list)
                     else:
-                        platform_list = [platform_list]
+                        platform_list = [platform_list] if platform_list else []
                 except:
                     platform_list = [platform_list] if platform_list else []
             platforms.update(platform_list)
@@ -251,16 +397,13 @@ Generate 4-5 specific recommendations for:
 Format as numbered list items with brief explanations. Focus on actionable, practical advice."""
 
         response = self._query_ollama(prompt)
-
-        # Parse recommendations into list
         recommendations = []
         if response:
-            lines = response.split('\n')
+            lines = response.split('\\n')
             for line in lines:
                 line = line.strip()
                 if line and (line[0].isdigit() or line.startswith('-') or line.startswith('*')):
                     recommendations.append(line)
-
         return recommendations
 
     def generate_market_implications(self, trend_data: Dict[str, Any]) -> List[str]:
@@ -283,29 +426,29 @@ Identify 3-4 key market implications for the Japanese music industry focusing on
 Format as bullet points with clear implications for industry stakeholders."""
 
         response = self._query_ollama(prompt)
-
-        # Parse implications into list
         implications = []
         if response:
-            lines = response.split('\n')
+            lines = response.split('\\n')
             for line in lines:
                 line = line.strip()
                 if line and (line.startswith('-') or line.startswith('*') or line.startswith('•') or line[0].isdigit()):
                     implications.append(line)
-
         return implications
 
     def calculate_confidence_score(self, trend_data: Dict[str, Any]) -> float:
         """Calculate confidence score for the analysis"""
         summary = trend_data['summary']
+        artist_trends = trend_data.get('artist_trends', [])
+        genre_trends = trend_data.get('genre_trends', [])
+        temporal_trends = trend_data.get('temporal_trends', [])
 
-        # Factors affecting confidence
-        total_data_points = summary['overview']['total_artists_analyzed']
+        total_artists = len(artist_trends)
+        total_genres = len(genre_trends)
+        total_temporal_points = len(temporal_trends)
+        total_data_points = total_artists + total_genres + total_temporal_points
         sentiment_data_points = sum(summary.get('sentiment_patterns', {}).values())
-
-        # Extract platform diversity
         platforms = set()
-        for artist in trend_data['artist_trends']:
+        for artist in trend_data.get('artist_trends', []):
             platform_list = artist.get('platforms', '[]')
             if isinstance(platform_list, str):
                 try:
@@ -315,26 +458,53 @@ Format as bullet points with clear implications for industry stakeholders."""
                         platform_list = [platform_list] if platform_list else []
                 except:
                     platform_list = []
+            elif isinstance(platform_list, list):
+                pass
+            else:
+                platform_list = []
             platforms.update(platform_list)
 
-        # Confidence calculation
-        data_volume_score = min(0.6, total_data_points * 0.15)  # Max 0.6 for data volume
-        sentiment_score = min(0.2, sentiment_data_points * 0.1)  # Max 0.2 for sentiment data
-        platform_score = min(0.2, len(platforms) * 0.1)  # Max 0.2 for platform diversity
+        data_volume_score = min(0.5, (total_artists * 0.05) + (total_genres * 0.05) + (total_temporal_points * 0.02))
+        sentiment_score = min(0.2, sentiment_data_points * 0.05)
+        platform_score = min(0.2, len(platforms) * 0.05)
+        llm_factor = 0.1 if self.ollama_available else 0.0
+        total_confidence = data_volume_score + sentiment_score + platform_score + llm_factor
+        return min(1.0, max(0.1, total_confidence))
 
-        total_confidence = data_volume_score + sentiment_score + platform_score
-        return min(1.0, max(0.1, total_confidence))  # Ensure between 0.1 and 1.0
+    def generate_complete_summary(self, input_dir_str: str, date_tag: str, source_tag: str) -> TrendSummary:
+        """Generate comprehensive trend summary and return a TrendSummary object"""
+        input_dir = Path(input_dir_str)
+        trend_summary_filename = f"trend_summary_{date_tag}_{source_tag}.json"
+        artist_trends_filename = f"artist_trends_{date_tag}_{source_tag}.csv"
+        genre_trends_filename = f"genre_trends_{date_tag}_{source_tag}.csv"
+        temporal_trends_filename = f"temporal_trends_{date_tag}_{source_tag}.csv"
 
-    def generate_complete_summary(self, trend_summary_path: str, artist_trends_path: str) -> Dict[str, Any]:
-        """Generate comprehensive trend summary"""
+        trend_summary_path = input_dir / trend_summary_filename
+        artist_trends_path = input_dir / artist_trends_filename
+        genre_trends_path = input_dir / genre_trends_filename
+        temporal_trends_path = input_dir / temporal_trends_filename
+
         logger.info("📥 Loading trend detection results...")
-        trend_data = self.load_trend_data(trend_summary_path, artist_trends_path)
+        trend_data = self.load_trend_data(
+            trend_summary_path,
+            artist_trends_path,
+            genre_trends_path,
+            temporal_trends_path
+        )
 
         logger.info("📝 Generating executive summary...")
         executive_summary = self.generate_executive_summary(trend_data)
 
         logger.info("🎵 Generating artist insights...")
         artist_insights = self.generate_artist_insights(trend_data)
+
+        # Placeholder for genre insights - to be implemented next
+        # genre_insights = [] # self.generate_genre_insights(trend_data)
+        logger.info("🎶 Generating genre insights...")
+        genre_insights = self.generate_genre_insights(trend_data)
+
+        logger.info("⏳ Generating temporal insights...") # Added log for temporal insights
+        temporal_insights = self.generate_temporal_insights(trend_data) # Call new method
 
         logger.info("😊 Analyzing sentiment patterns...")
         sentiment_analysis = self.generate_sentiment_analysis(trend_data)
@@ -348,223 +518,234 @@ Format as bullet points with clear implications for industry stakeholders."""
         logger.info("📈 Generating market implications...")
         market_implications = self.generate_market_implications(trend_data)
 
-        # Calculate confidence score
         confidence_score = self.calculate_confidence_score(trend_data)
 
-        # Extract key findings from data
         key_findings = []
-        summary = trend_data['summary']
+        summary_data = trend_data['summary'] # Using a shorter alias
 
-        if summary['overview']['total_artists_analyzed'] > 0:
-            key_findings.append(f"Analyzed {summary['overview']['total_artists_analyzed']} trending Japanese music artists")
+        if summary_data['overview']['total_artists_analyzed'] > 0:
+            key_findings.append(f"Analyzed {summary_data['overview']['total_artists_analyzed']} trending Japanese music artists")
 
-        if summary.get('top_artists'):
-            top_artist = summary['top_artists'][0]
+        if summary_data['overview'].get('total_genres_analyzed', 0) > 0: # Check for genres
+             key_findings.append(f"Analyzed {summary_data['overview']['total_genres_analyzed']} trending Japanese music genres")
+
+        if summary_data.get('top_artists'):
+            top_artist = summary_data['top_artists'][0]
             key_findings.append(f"Top trending artist: {top_artist['name']} (trend strength: {top_artist['trend_strength']:.2f})")
 
-        sentiment_patterns = summary.get('sentiment_patterns', {})
+        # Placeholder for top genre - adapt if top_genres is added to summary_data
+        # if summary_data.get('top_genres'):
+        #     top_genre = summary_data['top_genres'][0]
+        #     key_findings.append(f"Top trending genre: {top_genre['name']} (trend strength: {top_genre['trend_strength']:.2f})")
+
+        sentiment_patterns = summary_data.get('sentiment_patterns', {})
         total_sentiment = sum(sentiment_patterns.values())
         if total_sentiment > 0:
             dominant_sentiment = max(sentiment_patterns.items(), key=lambda x: x[1])
             key_findings.append(f"Dominant sentiment pattern: {dominant_sentiment[0]} ({dominant_sentiment[1]} trends)")
 
-        # Extract platform info
         platforms = set()
-        for artist in trend_data['artist_trends']:
+        for artist in trend_data.get('artist_trends', []):
             platform_list = artist.get('platforms', '[]')
-            if isinstance(platform_list, str) and platform_list.startswith('['):
+            if isinstance(platform_list, str):
                 try:
-                    platform_list = eval(platform_list)
-                    platforms.update(platform_list)
+                    if platform_list.startswith('[') and platform_list.endswith(']'):
+                        platform_list = eval(platform_list)
+                    else:
+                        platform_list = [platform_list] if platform_list else []
                 except:
-                    pass
+                    platform_list = []
+            elif isinstance(platform_list, list):
+                pass
+            else:
+                platform_list = []
+            platforms.update(platform_list)
 
         if platforms:
             key_findings.append(f"Active platforms: {', '.join(platforms)}")
 
-        return {
-            'executive_summary': executive_summary,
-            'key_findings': key_findings,
-            'artist_insights': artist_insights,
-            'genre_insights': [],  # No genre data in current dataset
-            'sentiment_analysis': sentiment_analysis,
-            'platform_analysis': platform_analysis,
-            'recommendations': recommendations,
-            'market_implications': market_implications,
-            'metadata': {
-                'timestamp': datetime.now().isoformat(),
-                'data_period': trend_data['summary'].get('analysis_timestamp', 'Unknown'),
-                'confidence_score': confidence_score,
-                'llm_available': self.ollama_available
-            }
-        }
+        return TrendSummary(
+            executive_summary=executive_summary,
+            key_findings=key_findings,
+            artist_insights=artist_insights,
+            genre_insights=genre_insights,
+            temporal_insights=temporal_insights, # Add temporal insights to TrendSummary
+            sentiment_analysis=sentiment_analysis,
+            platform_analysis=platform_analysis,
+            recommendations=recommendations,
+            market_implications=market_implications,
+            timestamp=datetime.now().isoformat(),
+            data_period=trend_data['summary'].get('analysis_timestamp', 'Unknown'),
+            confidence_score=confidence_score
+        )
 
-    def export_summary(self, summary: Dict[str, Any], output_dir: str) -> Dict[str, str]:
-        """Export summary in multiple formats"""
-        output_path = Path(output_dir)
+    def export_summary(self, summary: TrendSummary, output_dir_str: str, date_tag: str, source_tag: str) -> Dict[str, str]:
+        """Export summary in multiple formats, using TrendSummary object and adding date/source tags to filenames"""
+        output_path = Path(output_dir_str)
         output_path.mkdir(parents=True, exist_ok=True)
 
         outputs = {}
+        base_filename = f"trend_insights_{date_tag}_{source_tag}"
 
-        # Export as JSON
-        json_path = output_path / "trend_insights_summary.json"
+        # JSON Export
+        json_path = output_path / f"{base_filename}.json"
+        summary_dict = {
+            'timestamp': summary.timestamp,
+            'data_period': summary.data_period,
+            'confidence_score': summary.confidence_score,
+            'executive_summary': summary.executive_summary,
+            'key_findings': summary.key_findings,
+            'artist_insights': summary.artist_insights,
+            'genre_insights': summary.genre_insights,
+            'temporal_insights': summary.temporal_insights, # Added temporal insights
+            'sentiment_analysis': summary.sentiment_analysis,
+            'platform_analysis': summary.platform_analysis,
+            'recommendations': summary.recommendations,
+            'market_implications': summary.market_implications
+        }
         with open(json_path, 'w', encoding='utf-8') as f:
-            json.dump(summary, f, indent=2, ensure_ascii=False)
+            json.dump(summary_dict, f, indent=4, ensure_ascii=False)
         outputs['json'] = str(json_path)
+        logger.info(f"📄 JSON summary exported to {json_path}")
 
-        # Export as Markdown report
-        markdown_path = output_path / "trend_insights_report.md"
-        markdown_content = self._generate_markdown_report(summary)
-        with open(markdown_path, 'w', encoding='utf-8') as f:
-            f.write(markdown_content)
-        outputs['markdown'] = str(markdown_path)
+        # Markdown Report
+        md_path = output_path / f"{base_filename}.md"
+        with open(md_path, 'w', encoding='utf-8') as f:
+            f.write(self._generate_markdown_report(summary))
+        outputs['markdown'] = str(md_path)
+        logger.info(f"📝 Markdown report exported to {md_path}")
 
-        # Export key metrics as CSV
-        csv_path = output_path / "trend_insights_metrics.csv"
-        with open(csv_path, 'w', newline='', encoding='utf-8') as f:
+        # CSV Summary of Key Metrics
+        csv_path = output_path / f"{base_filename}_metrics.csv"
+        with open(csv_path, 'w', encoding='utf-8', newline='') as f:
             writer = csv.writer(f)
             writer.writerow(['metric', 'value'])
-            writer.writerow(['analysis_timestamp', summary['metadata']['timestamp']])
-            writer.writerow(['data_period', summary['metadata']['data_period']])
-            writer.writerow(['confidence_score', summary['metadata']['confidence_score']])
-            writer.writerow(['key_findings_count', len(summary['key_findings'])])
-            writer.writerow(['artist_insights_count', len(summary['artist_insights'])])
-            writer.writerow(['recommendations_count', len(summary['recommendations'])])
-            writer.writerow(['market_implications_count', len(summary['market_implications'])])
-            writer.writerow(['llm_available', summary['metadata']['llm_available']])
+            writer.writerow(['timestamp', summary.timestamp])
+            writer.writerow(['data_period', summary.data_period])
+            writer.writerow(['confidence_score', f"{summary.confidence_score:.2f}"])
+            writer.writerow(['key_findings_count', len(summary.key_findings)])
+            writer.writerow(['artist_insights_count', len(summary.artist_insights)])
+            writer.writerow(['genre_insights_count', len(summary.genre_insights)])
+            writer.writerow(['temporal_insights_count', len(summary.temporal_insights)]) # Added temporal insights count
+            writer.writerow(['recommendations_count', len(summary.recommendations)])
+            writer.writerow(['market_implications_count', len(summary.market_implications)])
         outputs['csv'] = str(csv_path)
+        logger.info(f"📊 CSV metrics exported to {csv_path}")
 
-        logger.info(f"📁 Summary exported to: {list(outputs.keys())}")
         return outputs
 
-    def _generate_markdown_report(self, summary: Dict[str, Any]) -> str:
-        """Generate formatted Markdown report"""
-        metadata = summary['metadata']
+    def _generate_markdown_report(self, summary: TrendSummary) -> str:
+        """Generate a markdown report from the TrendSummary object"""
+        report = f"# Japanese Music Social Media Trend Analysis\\n\\n"
+        report += f"**Report Generated:** {summary.timestamp}\\n"
+        report += f"**Data Period:** {summary.data_period}\\n"
+        report += f"**Confidence Score:** {summary.confidence_score:.2f}\\n\\n"
 
-        report = f"""# 🎵 Japanese Music Trends Analysis Report
+        report += "## 🌟 Executive Summary\\n\\n"
+        report += f"{summary.executive_summary}\\n"
 
-**Generated:** {metadata['timestamp']}
-**Data Period:** {metadata['data_period']}
-**Confidence Score:** {metadata['confidence_score']:.2f}/1.0
-**LLM Status:** {'✅ Available' if metadata['llm_available'] else '⚠️ Fallback Mode'} (Host: {self.ollama_url})
-
----
-
-## 📋 Executive Summary
-
-{summary['executive_summary']}
-
----
-
-## 🔍 Key Findings
-
-"""
-
-        for i, finding in enumerate(summary['key_findings'], 1):
+        report += "\\n---\\n\\n## 🔑 Key Findings\\n\\n"
+        for i, finding in enumerate(summary.key_findings, 1):
             report += f"{i}. {finding}\\n"
 
-        if summary['artist_insights']:
+        if summary.artist_insights:
             report += "\\n---\\n\\n## 🎤 Artist Insights\\n\\n"
-            for insight in summary['artist_insights']:
-                report += f"{insight}\\n\\n"
+            for insight in summary.artist_insights:
+                report += f"- {insight}\\n"
 
-        if summary['sentiment_analysis']:
-            report += f"---\\n\\n## 😊 Sentiment Analysis\\n\\n{summary['sentiment_analysis']}\\n\\n"
+        if summary.genre_insights:
+            report += "\\n---\\n\\n## 🎶 Genre Insights\\n\\n"
+            for insight in summary.genre_insights:
+                report += f"- {insight}\\n"
 
-        if summary['platform_analysis']:
-            report += f"---\\n\\n## 📱 Platform Analysis\\n\\n{summary['platform_analysis']}\\n\\n"
+        if summary.temporal_insights: # Added section for temporal insights
+            report += "\\n---\\n\\n## ⏳ Temporal Insights\\n\\n"
+            for insight in summary.temporal_insights:
+                report += f"- {insight}\\n"
 
-        if summary['recommendations']:
-            report += "---\\n\\n## 💡 Recommendations\\n\\n"
-            for rec in summary['recommendations']:
+        report += "\\n---\\n\\n## 😊 Sentiment Analysis\\n\\n"
+        report += f"{summary.sentiment_analysis}\\n"
+
+        report += "\\n---\\n\\n## 📱 Platform Analysis\\n\\n"
+        report += f"{summary.platform_analysis}\\n"
+
+        if summary.recommendations:
+            report += "\\n---\\n\\n## 💡 Recommendations\\n\\n"
+            for rec in summary.recommendations:
                 report += f"- {rec}\\n"
 
-        if summary['market_implications']:
+        if summary.market_implications:
             report += "\\n---\\n\\n## 📈 Market Implications\\n\\n"
-            for impl in summary['market_implications']:
-                report += f"- {impl}\\n"
-
-        report += f"\\n---\\n\\n*Report generated by Japanese Music Trends Analysis Pipeline*  \\n*Confidence Score: {metadata['confidence_score']:.2f} | LLM: {'Ollama' if metadata['llm_available'] else 'Fallback'} (Host: {self.ollama_url})*"
+            for imp in summary.market_implications:
+                report += f"- {imp}\\n"
 
         return report
 
 def main():
-    """Main function for standalone execution"""
-    parser = argparse.ArgumentParser(description="Standalone Summarization Module for Japanese Music Trends.")
-    parser.add_argument("--trend-summary-file", type=str, required=True,
-                        help="Path to the input trend summary JSON file.")
-    parser.add_argument("--artist-trends-file", type=str, required=True,
-                        help="Path to the input artist trends CSV file.")
-    parser.add_argument("--output-dir", type=str, required=True,
-                        help="Directory to save the output summary files.")
-    parser.add_argument("--ollama-host", type=str, default="http://localhost:11434",
-                        help="Ollama host URL (e.g., http://localhost:11434).")
-
-    args = parser.parse_args()
-
+    logger.info("Main function logger active.")
     try:
-        # Initialize summarizer
-        logger.info(f"🚀 Initializing Japanese Music Trends Summarizer with Ollama host: {args.ollama_host}...")
-        summarizer = TrendSummarizer(ollama_url=args.ollama_host)
+        parser = argparse.ArgumentParser(description="Trend Summarization Standalone Script")
+        parser.add_argument("--input-dir", type=str, default="data/intermediate/", help="Directory containing the input trend files.")
+        parser.add_argument("--output-dir", type=str, default="data/summaries/", help="Directory to save the generated summaries.")
+        parser.add_argument("--date-tag", type=str, required=True, help="Date tag for input/output files (e.g., YYYYMMDD).")
+        parser.add_argument("--source-tag", type=str, required=True, help="Source tag for input/output files (e.g., combined, reddit, youtube).")
+        parser.add_argument("--ollama-host", type=str, help="Optional: Ollama host URL (e.g., http://localhost:11434)")
+        parser.add_argument("--ollama-model", type=str, help="Ollama model name (e.g., llama3:8b)")
+        parser.add_argument("--temperature", type=float, help="Temperature for Ollama model.")
+        parser.add_argument("--max_tokens", type=int, help="Max tokens for Ollama model response.")
+        parser.add_argument("--log_level", type=str, default="INFO", choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], help="Set the logging level.")
+        args = parser.parse_args()
 
-        # File paths from arguments
-        trend_summary_path = Path(args.trend_summary_file)
-        artist_trends_path = Path(args.artist_trends_file)
-        output_dir = Path(args.output_dir)
+        # Configure logging level based on command-line argument
+        log_level_cli = args.log_level.upper()
+        numeric_log_level = getattr(logging, log_level_cli, logging.INFO) # Default to INFO if invalid
 
-        # Verify input files exist
-        if not trend_summary_path.exists():
-            logger.error(f"❌ Trend summary file not found: {trend_summary_path}")
-            return
+        # Set the level for the module's logger instance and its handlers
+        logger.setLevel(numeric_log_level)
+        for handler_obj in logger.handlers:
+            handler_obj.setLevel(numeric_log_level)
 
-        if not artist_trends_path.exists():
-            logger.error(f"❌ Artist trends file not found: {artist_trends_path}")
-            return
+        logger.info(f"Logging level set to {log_level_cli} based on command-line argument.")
+        # Example debug message to test if DEBUG level is working
+        logger.debug("This is a debug message from main() after setting log level.")
 
-        # Generate complete summary
-        logger.info("📊 Generating comprehensive trend summary...")
-        summary = summarizer.generate_complete_summary(
-            str(trend_summary_path),
-            str(artist_trends_path)
-        )
+        config_kwargs = {}
+        if args.ollama_host:
+            config_kwargs['ollama_host'] = args.ollama_host
+        if args.ollama_model:
+            config_kwargs['ollama_model'] = args.ollama_model
+        if args.temperature is not None:
+            config_kwargs['temperature'] = args.temperature
+        if args.max_tokens is not None:
+            config_kwargs['max_tokens'] = args.max_tokens
 
-        # Export results
-        logger.info(f"💾 Exporting summary reports to {output_dir}...")
-        outputs = summarizer.export_summary(summary, str(output_dir))
+        summary_config = SummaryConfig(**config_kwargs)
+        summarizer = TrendSummarizer(config=summary_config)
 
-        # Display results
-        print("\\n" + "="*70)
-        print("🎵 JAPANESE MUSIC TRENDS SUMMARIZATION COMPLETE")
-        print("="*70)
-        print(f"🗣️ Ollama Host Used: {args.ollama_host}")
-        print(f"📝 Executive Summary: {summary['executive_summary'][:100]}...")
-        print(f"🔍 Key Findings: {len(summary['key_findings'])} identified")
-        print(f"🎤 Artist Insights: {len(summary['artist_insights'])} generated")
-        print(f"💡 Recommendations: {len(summary['recommendations'])} provided")
-        print(f"📈 Market Implications: {len(summary['market_implications'])} identified")
-        print(f"🎯 Confidence Score: {summary['metadata']['confidence_score']:.2f}/1.0")
-        print(f"🤖 LLM Status: {'Available' if summary['metadata']['llm_available'] else 'Fallback Mode'}")
-        print(f"📁 Output Files: {', '.join(outputs.keys())}")
-        print("="*70)
+        logger.info(f"🚀 Starting summarization for {args.date_tag} from {args.source_tag}...")
+        logger.info(f"Input directory: {Path(args.input_dir).resolve()}")
+        logger.info(f"Output directory: {Path(args.output_dir).resolve()}")
 
-        # Print quick preview of insights
-        if summary['key_findings']:
-            print("\\n🔍 Key Findings Preview:")
-            for finding in summary['key_findings'][:3]:
-                print(f"   • {finding}")
+        full_summary = summarizer.generate_complete_summary(args.input_dir, args.date_tag, args.source_tag)
 
-        if summary['artist_insights']:
-            print("\\n🎤 Artist Insights Preview:")
-            for insight in summary['artist_insights'][:2]:
-                print(f"   • {insight[:100]}...")
+        summarizer.export_summary(full_summary, args.output_dir, args.date_tag, args.source_tag)
 
-        print(f"\\n📁 Full report available at: {outputs['markdown']}")
+        logger.info("✅ Summarization process completed successfully!")
+        logger.info(f"Confidence Score: {full_summary.confidence_score:.2f}")
+        logger.info(f"- Executive Summary: {'Generated' if full_summary.executive_summary and not 'fallback mode' in full_summary.executive_summary else 'Fallback or Empty'}")
+        logger.info(f"- Key Findings: {len(full_summary.key_findings)} generated")
+        logger.info(f"- Artist Insights: {len(full_summary.artist_insights)} generated")
+        if full_summary.genre_insights:
+            logger.info(f"- Genre Insights: {len(full_summary.genre_insights)} generated")
+        if full_summary.temporal_insights: # Added for temporal insights
+            logger.info(f"- Temporal Insights: {len(full_summary.temporal_insights)} generated") # Added for temporal insights
+        logger.info(f"- Recommendations: {len(full_summary.recommendations)} generated")
+        logger.info(f"Outputs saved in: {Path(args.output_dir).resolve()}")
 
-    except Exception as e:
-        logger.error(f"❌ Summarization failed: {e}")
-        # raise # Optionally re-raise for debugging, or handle gracefully
-        print(f"❌ An error occurred during summarization: {e}")
-
+    except Exception as e: # Add except block
+        logger.error(f"An error occurred during script execution: {e}") # Log the exception
+        import traceback # Import traceback
+        logger.error(traceback.format_exc()) # Log the full traceback
 
 if __name__ == "__main__":
     main()

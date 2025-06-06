@@ -59,13 +59,13 @@ def main():
     # --- End Argument Parsing ---
 
     platform = args.platform
-    
+
     # Resolve output_dir relative to _PROJECT_ROOT if it's not absolute
     output_dir_path = Path(args.output_dir)
     if not output_dir_path.is_absolute():
         output_dir_path = _PROJECT_ROOT / output_dir_path
     output_dir_path.mkdir(parents=True, exist_ok=True)
-    
+
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
 
     # --- File and Column Configuration based on Platform ---

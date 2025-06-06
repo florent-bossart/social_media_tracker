@@ -37,6 +37,8 @@ pandas = "1.5.3"
 numpy = "<1.27"
 apache-airflow-providers-docker = "^4.4.0"
 sacremoses = "^0.1.1"
+streamlit = {version = "^1.45.1", python = ">=3.9,<3.9.7 || >3.9.7,<3.13"}
+wordcloud = "^1.9.4"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.4"
