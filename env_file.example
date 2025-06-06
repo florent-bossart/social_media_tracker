@@ -1,0 +1,22 @@
+POSTGRES_PASSWORD=***      # used for the Airflow database
+
+
+DBT_DB_PASSWORD=***   # used for the main database, by DBT and by Streamlit
+DBT_PROFILES_DIR=/app/airflow/dbt_social_media_tracker    # path to the DBT profiles directory
+
+
+WAREHOUSE_HOST=social_media_tracker_db  # host of the main database - Change to localhost to test locally.
+WAREHOUSE_PORT=5432                     # port of the main database  - You need to use 5432 if you test locally.
+WAREHOUSE_DB=social_db                  # name of the main database
+WAREHOUSE_USER=dbt                      # user of the main database
+WAREHOUSE_PASSWORD=${DBT_DB_PASSWORD}   # password of the main database
+
+
+REDDIT_CLIENT_ID= # Client ID for Reddit API - Get it from https://www.reddit.com/prefs/apps
+REDDIT_CLIENT_SECRET= # Client secret for Reddit API - Get it from https://www.reddit.com/prefs/apps
+REDDIT_USER_AGENT=  # User agent for Reddit API - e.g., "my_reddit_app/0.1 by your_username"
+
+YOUTUBE_API_KEY= # YouTube API key - Get it from https://console.cloud.google.com/apis/credentials?project=your_project_id
+
+YOUTUBE_LLM_HOST= # host of the YouTube LLM - Change to localhost to test locally.
+REDDIT_LLM_HOST=  # host of the Reddit LLM - Change to localhost to test locally.

@@ -199,17 +199,24 @@ def get_platform_data():
 
 @st.cache_data
 def get_temporal_data():
-    """Fetch temporal trends data"""
+    """Fetch temporal trends data from analytics.temporal_trends table"""
     query = """
     SELECT
-        DATE(ee.extraction_date) as date,
-        COUNT(*) as daily_mentions,
-        AVG(COALESCE(sa.sentiment_strength, 0.5)) as daily_sentiment
-    FROM analytics.entity_extraction ee
-    LEFT JOIN analytics.sentiment_analysis sa ON ee.original_text = sa.original_text
-    WHERE ee.extraction_date >= CURRENT_DATE - INTERVAL '30 days'
-    GROUP BY DATE(ee.extraction_date)
-    ORDER BY date
+        time_period as date,
+        sentiment_shift,
+        engagement_pattern,
+        CASE
+            WHEN ABS(sentiment_shift) >= 0.5 THEN 0.8
+            WHEN ABS(sentiment_shift) >= 0.3 THEN 0.6
+            WHEN ABS(sentiment_shift) >= 0.1 THEN 0.4
+            ELSE 0.2
+        END as trend_strength,
+        -- Use row count as proxy for data_points
+        COUNT(*) OVER () as data_points,
+        CURRENT_TIMESTAMP as analysis_timestamp
+    FROM analytics.temporal_trends
+    WHERE time_period::DATE >= CURRENT_DATE - INTERVAL '30 days'
+    ORDER BY time_period::DATE
     """
     return fetch_data(query)
 
@@ -408,6 +415,51 @@ def get_insights_summary_data():
         st.error(f"Error fetching insights summary data: {e}")
         return None
 
+@st.cache_data
+def get_genre_artist_diversity():
+    """Fetch genre artist diversity data from analytics.genre_trends table"""
+    query = """
+    SELECT
+        genre,
+        artist_diversity,
+        popularity_score
+    FROM analytics.genre_trends
+    WHERE genre IS NOT NULL
+    ORDER BY artist_diversity DESC NULLS LAST, popularity_score DESC
+    LIMIT 15
+    """
+    return fetch_data(query)
+
+@st.cache_data
+def get_artists_without_genre_count():
+    """Count artists without genre assignment (where genre is null)"""
+    query = """
+    WITH all_artists AS (
+        SELECT DISTINCT
+            LOWER(TRIM(jsonb_array_elements_text(ee.entities_artists))) as artist_name
+        FROM analytics.entity_extraction ee
+        WHERE ee.entities_artists IS NOT NULL
+        AND jsonb_array_length(ee.entities_artists) > 0
+    ),
+    artists_with_genres AS (
+        SELECT DISTINCT
+            LOWER(TRIM(jsonb_array_elements_text(ee.entities_artists))) as artist_name
+        FROM analytics.entity_extraction ee
+        WHERE ee.entities_artists IS NOT NULL
+        AND ee.entities_genres IS NOT NULL
+        AND jsonb_array_length(ee.entities_artists) > 0
+        AND jsonb_array_length(ee.entities_genres) > 0
+    )
+    SELECT
+        COUNT(*) as artists_without_genre
+    FROM all_artists a
+    WHERE a.artist_name NOT IN (SELECT artist_name FROM artists_with_genres)
+    AND a.artist_name != ''
+    AND a.artist_name IS NOT NULL
+    """
+    result = fetch_data(query)
+    return result['artists_without_genre'].iloc[0] if not result.empty else 0
+
 def create_wordcloud_chart(df):
     """Create a word cloud from the database data"""
     if df.empty:
@@ -517,34 +569,68 @@ def create_platform_comparison(df):
     return fig
 
 def create_temporal_trends(df):
-    """Create temporal trends visualization"""
+    """Create temporal trends visualization showing sentiment shift only"""
     if df.empty:
         st.warning("No temporal data available")
         return None
 
-    fig = make_subplots(
-        rows=2, cols=1,
-        subplot_titles=('Daily Mentions Over Time', 'Sentiment Trends'),
-        vertical_spacing=0.1
-    )
+    # Create a single plot for sentiment shift trends
+    fig = go.Figure()
 
-    # Daily mentions
+    # Sentiment shift trends with zero reference line
     fig.add_trace(
-        go.Scatter(x=df['date'], y=df['daily_mentions'],
-                  mode='lines+markers', name='Daily Mentions',
-                  line=dict(color='#ff6b6b', width=3)),
-        row=1, col=1
+        go.Scatter(x=df['date'], y=df['sentiment_shift'],
+                  mode='lines+markers', name='Sentiment Shift',
+                  line=dict(color='#4ecdc4', width=3),
+                  marker=dict(size=8))
     )
 
-    # Sentiment trends
-    fig.add_trace(
-        go.Scatter(x=df['date'], y=df['daily_sentiment'],
-                  mode='lines+markers', name='Daily Sentiment',
-                  line=dict(color='#4ecdc4', width=3)),
-        row=2, col=1
+    # Add zero reference line for sentiment shift
+    fig.add_hline(y=0, line_dash="dash", line_color="gray", opacity=0.5)
+
+    # Update layout
+    fig.update_layout(
+        height=400,
+        showlegend=False,
+        title_text="📈 Sentiment Shift Trends",
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)',
+        xaxis_title="Date",
+        yaxis_title="Sentiment Shift"
     )
 
-    fig.update_layout(height=600, showlegend=False, title_text="📈 Temporal Analysis")
+    return fig
+
+def create_genre_artist_diversity_chart(df):
+    """Create a bar chart showing artist diversity by genre"""
+    if df.empty:
+        st.warning("No genre artist diversity data available")
+        return None
+
+    # Handle null values by converting them to a string for display
+    df_viz = df.copy()
+    df_viz['artist_diversity_display'] = df_viz['artist_diversity'].fillna('Unknown')
+    df_viz['artist_diversity_numeric'] = df_viz['artist_diversity'].fillna(0)
+
+    # Create the chart
+    fig = px.bar(df_viz,
+                 x='artist_diversity_numeric',
+                 y='genre',
+                 orientation='h',
+                 title="🎨 Artist Diversity by Genre",
+                 labels={'artist_diversity_numeric': 'Number of Artists', 'genre': 'Genre'},
+                 color='artist_diversity_numeric',
+                 color_continuous_scale='viridis',
+                 hover_data=['popularity_score'])
+
+    fig.update_layout(
+        height=500,
+        showlegend=False,
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)',
+        yaxis={'categoryorder': 'total ascending'}
+    )
+
     return fig
 
 st.set_page_config(
@@ -583,6 +669,10 @@ st.markdown("""
 
 st.markdown('<div class="main-header"><h1>🎌 Japanese Music Trends Dashboard</h1><p>Social Media Analytics for J-Pop, City Pop, Anime Music & More</p></div>', unsafe_allow_html=True)
 
+# Initialize session state for search functionality
+if 'artist_search' not in st.session_state:
+    st.session_state.artist_search = ""
+
 st.sidebar.title("🎵 Navigation")
 page = st.sidebar.radio("Choose a category", [
     "🏠 Overview",
@@ -592,8 +682,7 @@ page = st.sidebar.radio("Choose a category", [
     "📱 Platform Insights",
     "💭 Sentiment Deep Dive",
     "📈 AI Trend Summary",
-    "🔍 AI Insights",
-    "📊 Raw Data Explorer"
+    "🔍 AI Insights"
 ])
 
 # Load real data
@@ -603,6 +692,8 @@ try:
         artist_data['artist_name'] = artist_data['artist_name'].apply(lambda x: unquote(x) if isinstance(x, str) else x) # Added decoding
 
     genre_data = get_genre_trends()
+    genre_artist_diversity_data = get_genre_artist_diversity()
+    artists_without_genre_count = get_artists_without_genre_count()
     platform_data = get_platform_data()
     temporal_data = get_temporal_data()
     wordcloud_data = get_wordcloud_data()
@@ -723,8 +814,55 @@ if page == "🏠 Overview":
         else:
             st.info("No artist trends data available")
 
-    # Temporal overview
+    # Temporal overview with enhanced metrics
     if not temporal_data.empty:
+        st.subheader("📈 Temporal Analysis Overview")
+
+        # Calculate summary metrics
+        avg_sentiment_shift = temporal_data['sentiment_shift'].mean()
+        time_periods = len(temporal_data)
+        high_engagement_days = len(temporal_data[temporal_data['engagement_pattern'] == 'high'])
+
+        # Display summary metrics
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Avg Sentiment Shift", f"{avg_sentiment_shift:.3f}")
+        with col2:
+            st.metric("Time Periods", time_periods)
+        with col3:
+            st.metric("High Engagement Days", high_engagement_days)
+        with col4:
+            total_data_points = temporal_data['data_points'].sum()
+            st.metric("Total Data Points", f"{total_data_points:,}")
+
+        # Show engagement pattern distribution
+        col1, col2 = st.columns([1, 1])
+
+
+        with col1:
+            # Sentiment trend interpretation
+            st.subheader("📊 Sentiment Trend Status")
+            if avg_sentiment_shift > 0.1:
+                sentiment_status = "📈 Positive trend (sentiment improving)"
+                status_color = "success"
+            elif avg_sentiment_shift < -0.1:
+                sentiment_status = "📉 Negative trend (sentiment declining)"
+                status_color = "error"
+            else:
+                sentiment_status = "📊 Stable trend (sentiment steady)"
+                status_color = "info"
+
+            st.markdown(f"""
+            <div class="metric-card">
+                <h4>Current Trend</h4>
+                <p style="color: {'green' if status_color == 'success' else 'red' if status_color == 'error' else 'blue'};">
+                    {sentiment_status}
+                </p>
+                <p><small>Based on {time_periods} time periods analyzed</small></p>
+            </div>
+            """, unsafe_allow_html=True)
+
+        # Show the enhanced temporal chart
         fig = create_temporal_trends(temporal_data)
         if fig:
             st.plotly_chart(fig, use_container_width=True)
@@ -833,8 +971,8 @@ elif page == "🎶 Genre Analysis":
         with col2:
             st.subheader("📈 Genre Performance Metrics")
 
-            # Genre rankings
-            for i, (_, genre) in enumerate(genre_data.head(8).iterrows()):
+            # Genre rankings - limit to 5 genres to match radar chart height
+            for i, (_, genre) in enumerate(genre_data.head(5).iterrows()):
                 progress_value = float(genre['trend_strength'])
                 st.write(f"**{genre['genre']}**")
                 st.progress(min(progress_value, 1.0))  # Cap at 1.0 for progress bar
@@ -847,7 +985,7 @@ elif page == "🎶 Genre Analysis":
                     st.caption(f"Trend: {progress_value:.2f}")
                 st.markdown("<br>", unsafe_allow_html=True)
 
-        # Genre sentiment comparison
+        # Genre sentiment comparison - moved outside columns to fix layout
         st.subheader("🎵 Genre Sentiment Analysis")
         fig = px.bar(genre_data,
                      x='genre',
@@ -858,6 +996,32 @@ elif page == "🎶 Genre Analysis":
         fig.update_layout(height=400)
         fig.update_xaxes(tickangle=45)
         st.plotly_chart(fig, use_container_width=True)
+
+        # Artist Diversity by Genre
+        st.subheader("🎨 Artist Diversity by Genre")
+        if not genre_artist_diversity_data.empty:
+            fig = create_genre_artist_diversity_chart(genre_artist_diversity_data)
+            if fig:
+                st.plotly_chart(fig, use_container_width=True)
+
+            # Show summary statistics
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                max_diversity = genre_artist_diversity_data['artist_diversity'].max()
+                if pd.notna(max_diversity):
+                    st.metric("Highest Artist Diversity", f"{int(max_diversity)} artists")
+                else:
+                    st.metric("Highest Artist Diversity", "Unknown")
+            with col2:
+                avg_diversity = genre_artist_diversity_data['artist_diversity'].mean()
+                if pd.notna(avg_diversity):
+                    st.metric("Average Artist Diversity", f"{avg_diversity:.1f} artists")
+                else:
+                    st.metric("Average Artist Diversity", "Unknown")
+            with col3:
+                st.metric("Artists Without Genre", f"{artists_without_genre_count} artists")
+        else:
+            st.info("No artist diversity data available")
     else:
         st.warning("No genre data available")
 
@@ -1045,22 +1209,26 @@ elif page == "💭 Sentiment Deep Dive":
             if not artist_sentiment_data.empty:
                 st.subheader("🎤 Artist Sentiment Analysis")
 
-                # Create sentiment heatmap
+                # Create sentiment heatmap (horizontal orientation)
                 artist_pivot = artist_sentiment_data.pivot_table(
-                    index='artist_name',
-                    columns='overall_sentiment',
+                    index='overall_sentiment',
+                    columns='artist_name',
                     values='mention_count',
                     fill_value=0
-                ).head(15)
+                )
+
+                # Limit to top 15 artists for better readability
+                top_artists = artist_sentiment_data.groupby('artist_name')['mention_count'].sum().nlargest(15).index
+                artist_pivot = artist_pivot[top_artists]
 
                 if not artist_pivot.empty:
                     fig = px.imshow(artist_pivot.values,
-                                  labels=dict(x="Sentiment", y="Artist", color="Mentions"),
+                                  labels=dict(x="Artist", y="Sentiment", color="Mentions"),
                                   x=artist_pivot.columns,
                                   y=artist_pivot.index,
                                   color_continuous_scale='RdYlGn',
-                                  title="Artist Sentiment Heatmap")
-                    fig.update_layout(height=500)
+                                  title="Artist Sentiment Heatmap (Horizontal)")
+                    fig.update_layout(height=300, width=None)  # Reduce height for horizontal layout
                     st.plotly_chart(fig, use_container_width=True)
 
                 # Top artists by sentiment score
@@ -1249,18 +1417,57 @@ elif page == "🔍 AI Insights":
             st.subheader("🎤 Artist-Specific Insights")
 
             artist_insights = insights_summary_data['artist_insights']
-
-            # Create a searchable artist selector
             unique_artists = artist_insights['artist_name'].unique()
-            selected_artist = st.selectbox("Select an artist for detailed insights:",
-                                         ['All Artists'] + list(unique_artists))
 
-            if selected_artist == 'All Artists':
-                # Show summary statistics
+            # Search functionality
+            col1, col2, col3 = st.columns([2, 1, 0.5])
+            with col1:
+                # Use session state for search term with default value
+                default_search = st.session_state.get('artist_search', '')
+                search_term = st.text_input("🔍 Search for artists or keywords in insights:",
+                                          value=default_search,
+                                          placeholder="e.g. 'Yoasobi', 'album', 'trending'...")
+                # Update session state when search changes
+                if search_term != st.session_state.get('artist_search', ''):
+                    st.session_state.artist_search = search_term
+            with col2:
+                view_mode = st.selectbox("View Mode:", ["Search Results", "Browse All", "Summary Only"])
+            with col3:
+                st.write("")  # Empty space for alignment
+                if st.button("🗑️ Clear", help="Clear search"):
+                    st.session_state.artist_search = ""
+                    st.rerun()
+
+            # Filter insights based on search
+            filtered_insights = artist_insights.copy()
+
+            if search_term:
+                # Search in both artist names and insight text (case insensitive)
+                mask = (
+                    artist_insights['artist_name'].str.contains(search_term, case=False, na=False) |
+                    artist_insights['insight_text'].str.contains(search_term, case=False, na=False)
+                )
+                filtered_insights = artist_insights[mask]
+
+                # Show search statistics
+                if not filtered_insights.empty:
+                    unique_artists_found = filtered_insights['artist_name'].nunique()
+                    total_insights_found = len(filtered_insights)
+                    st.info(f"🔍 Found **{total_insights_found}** insights for **{unique_artists_found}** artists matching '{search_term}'")
+                else:
+                    st.warning(f"🔍 No insights found for '{search_term}'. Try a different search term.")
+
+            # Display current statistics
+            current_artists = filtered_insights['artist_name'].nunique() if not filtered_insights.empty else 0
+            current_insights = len(filtered_insights) if not filtered_insights.empty else 0
+
+            if view_mode == "Summary Only":
                 st.write(f"**Total Artists with Insights:** {len(unique_artists)}")
+                if search_term:
+                    st.write(f"**Filtered Results:** {current_insights} insights from {current_artists} artists")
 
-                # Create a word cloud from all insights
-                insights_text_list = artist_insights['insight_text'].tolist()
+                # Create a word cloud from filtered insights
+                insights_text_list = filtered_insights['insight_text'].tolist()
                 if insights_text_list:  # Check if list is not empty
                     all_insights_text = ' '.join(insights_text_list)
 
@@ -1284,21 +1491,65 @@ elif page == "🔍 AI Insights":
                 else:
                     st.warning("No insights text available for word cloud")
 
-                # Show all insights in an expandable format
-                st.subheader("📝 All Artist Insights")
-                for _, insight in artist_insights.iterrows():
-                    with st.expander(f"🎵 {insight['artist_name']}"):
-                        st.write(insight['insight_text'])
-            else:
-                # Show insights for selected artist
-                artist_data_insights = artist_insights[artist_insights['artist_name'] == selected_artist] # Renamed to avoid conflict
+            elif view_mode == "Search Results" or view_mode == "Browse All":
+                # Show appropriate message based on search state
+                show_results = True
+                if view_mode == "Search Results":
+                    if not search_term:
+                        st.info("💡 Enter a search term above to find specific artists or keywords in insights.")
+                        show_results = False
+                    elif filtered_insights.empty:
+                        st.warning(f"No insights found for '{search_term}'. Try a different search term.")
+                        show_results = False
 
-                if not artist_data_insights.empty:
-                    st.write(f"**Insights for {selected_artist}:**")
-                    for _, insight in artist_data_insights.iterrows():
-                        st.write(insight['insight_text'])
+                # Show filtered insights only if we should show results
+                if show_results and not filtered_insights.empty:
+                    # Limit results for better performance
+                    if view_mode == "Browse All":
+                        max_results = 20
+                        if len(filtered_insights) > max_results:
+                            st.info(f"📊 Showing first {max_results} of {current_insights} insights from {current_artists} artists. Use search to find specific content.")
+                            display_insights = filtered_insights.head(max_results)
+                        else:
+                            display_insights = filtered_insights
+                            st.info(f"📊 Showing all {current_insights} insights from {current_artists} artists.")
+                    else:  # Search Results mode
+                        display_insights = filtered_insights  # Show all search results
+
+                    st.subheader("📝 Artist Insights")
+
+                    # Group insights by artist for better organization
+                    for artist_name in display_insights['artist_name'].unique():
+                        artist_data_insights = display_insights[display_insights['artist_name'] == artist_name]
+
+                        with st.expander(f"🎵 {artist_name} ({len(artist_data_insights)} insight{'s' if len(artist_data_insights) > 1 else ''})", expanded=len(display_insights['artist_name'].unique()) <= 3):
+                            for _, insight in artist_data_insights.iterrows():
+                                # Highlight search terms if searching
+                                insight_text = insight['insight_text']
+                                if search_term and view_mode == "Search Results":
+                                    # Simple highlighting by making search term bold
+                                    import re
+                                    highlighted_text = re.sub(f'({re.escape(search_term)})',
+                                                            r'**\1**',
+                                                            insight_text,
+                                                            flags=re.IGNORECASE)
+                                    st.markdown(highlighted_text)
+                                else:
+                                    st.write(insight_text)
                 else:
-                    st.warning(f"No insights available for {selected_artist}")
+                    if view_mode == "Browse All":
+                        st.warning("No insights available")
+
+            # Quick artist selector for easy navigation
+            if view_mode != "Summary Only":
+                st.subheader("🎯 Quick Artist Selection")
+                artist_cols = st.columns(min(5, len(unique_artists)))
+                for i, artist in enumerate(sorted(unique_artists)[:15]):  # Show top 15 artists
+                    with artist_cols[i % 5]:
+                        if st.button(f"🎤 {artist}", key=f"artist_{i}", help=f"Search for {artist}"):
+                            # Update search term to this artist and rerun
+                            st.session_state.artist_search = artist
+                            st.rerun()
     else:
         st.warning("No AI insights data available")
 
