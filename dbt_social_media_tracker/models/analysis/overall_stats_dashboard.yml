@@ -1,0 +1,18 @@
+version: 2
+
+models:
+  - name: overall_stats_dashboard
+    description: "Overall dashboard statistics with multiple subqueries for key metrics"
+    columns:
+      - name: total_extractions
+        description: "Total number of entity extractions"
+      - name: total_sentiments
+        description: "Total number of sentiment analyses"
+      - name: unique_artists
+        description: "Number of unique artists"
+      - name: avg_sentiment
+        description: "Average sentiment strength across all analyses"
+      - name: positive_count
+        description: "Count of positive sentiment analyses"
+      - name: total_sentiment_count
+        description: "Total count of sentiment analyses"

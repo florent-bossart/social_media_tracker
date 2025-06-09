@@ -12,4 +12,7 @@ sources:
       - name: trend_summaries
       - name: summarization_metrics
       - name: insights_summaries
+      - name: insights_summary_overview
+      - name: insights_summary_key_findings
+      - name: insights_summary_artist_insights
       - name: wordcloud_data

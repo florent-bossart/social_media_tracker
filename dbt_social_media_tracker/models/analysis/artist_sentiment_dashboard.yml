@@ -1,0 +1,24 @@
+version: 2
+
+models:
+  - name: artist_sentiment_dashboard
+    description: "Artist sentiment analysis with deduplication and filtering for dashboard consumption"
+    columns:
+      - name: artist_name
+        description: "Artist name (properly capitalized)"
+        tests:
+          - not_null
+      - name: overall_sentiment
+        description: "Overall sentiment category (positive, negative, neutral)"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['positive', 'negative', 'neutral']
+      - name: avg_sentiment_score
+        description: "Average sentiment score for this artist"
+        tests:
+          - not_null
+      - name: mention_count
+        description: "Number of mentions (adjusted for specific artists like BabyMetal)"
+        tests:
+          - not_null

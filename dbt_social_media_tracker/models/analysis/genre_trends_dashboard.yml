@@ -1,0 +1,16 @@
+version: 2
+
+models:
+  - name: genre_trends_dashboard
+    description: "Genre trends analysis with JSONB processing and sentiment aggregation for dashboard"
+    columns:
+      - name: genre
+        description: "Genre name (properly capitalized)"
+      - name: mention_count
+        description: "Number of mentions for this genre"
+      - name: sentiment_score
+        description: "Average sentiment score for this genre"
+      - name: trend_strength
+        description: "Trend strength based on confidence scores"
+      - name: popularity_score
+        description: "Popularity score (same as trend_strength)"

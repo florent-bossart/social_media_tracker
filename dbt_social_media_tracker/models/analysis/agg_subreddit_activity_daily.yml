@@ -1,0 +1,22 @@
+version: 2
+
+models:
+  - name: agg_subreddit_activity_daily
+    description: "Daily aggregation of Reddit activity by subreddit including post counts and comment totals"
+    columns:
+      - name: subreddit
+        description: "Subreddit name where the activity occurred"
+        tests:
+          - not_null
+      - name: activity_date_yyyymmdd
+        description: "Date of activity in YYYYMMDD format"
+        tests:
+          - not_null
+      - name: total_posts
+        description: "Total number of distinct posts created on this date in this subreddit"
+        tests:
+          - not_null
+      - name: total_comments
+        description: "Total number of comments on posts in this subreddit on this date"
+        tests:
+          - not_null
