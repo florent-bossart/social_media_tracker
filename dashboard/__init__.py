@@ -1,12 +1,12 @@
 """
 Japanese Music Trends Dashboard Package
 
-A modular Streamlit dashboard for analyzing Japanese music trends 
+A modular Streamlit dashboard for analyzing Japanese music trends
 from social media data using DBT models.
 
 Modules:
 - database_service: Database connections and data fetching
-- data_queries: DBT model query functions  
+- data_queries: DBT model query functions
 - visualizations: Chart creation and plotting functions
 - ui_components: Streamlit UI components and styling
 - dashboard_pages: Individual page logic

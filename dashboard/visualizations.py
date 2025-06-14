@@ -171,20 +171,45 @@ def create_genre_artist_diversity_chart(df):
 
     return fig
 
-def create_artist_bar_chart(df, title="Artist Mentions"):
+def create_artist_bar_chart(df, title="Artist Mentions", num_artists=20):
     """Create a bar chart for artist mentions with sentiment coloring"""
     if df.empty:
         st.warning("No artist data available")
         return None
 
-    fig = px.bar(df.head(10),
+    # Get top artists and ensure all names are visible
+    top_artists = df.head(num_artists).copy()
+    
+    fig = px.bar(top_artists,
                  x='artist_name',
                  y='mention_count',
                  color='sentiment_score',
                  title=title,
-                 color_continuous_scale='RdYlGn')
-    fig.update_layout(height=400)
-    fig.update_xaxes(tickangle=45)
+                 color_continuous_scale='RdYlGn',
+                 hover_data=['sentiment_score', 'mention_count'])
+    
+    # Improve layout for better readability
+    fig.update_layout(
+        height=600,  # Increased height for better visibility
+        xaxis_title="Artist",
+        yaxis_title="Mention Count",
+        showlegend=False,
+        margin=dict(l=50, r=50, t=50, b=120)  # More bottom margin for labels
+    )
+    
+    # Rotate labels and ensure all are shown
+    fig.update_xaxes(
+        tickangle=45,
+        tickmode='linear',  # Show all ticks
+        title_standoff=25
+    )
+    
+    # Add value labels on bars for clarity
+    fig.update_traces(
+        texttemplate='%{y}',
+        textposition='outside'
+    )
+    
     return fig
 
 def create_sentiment_distribution_chart(df):
@@ -195,8 +220,8 @@ def create_sentiment_distribution_chart(df):
 
     # Calculate sentiment distribution
     sentiment_counts = df['overall_sentiment'].value_counts()
-    
-    fig = px.pie(values=sentiment_counts.values, 
+
+    fig = px.pie(values=sentiment_counts.values,
                  names=sentiment_counts.index,
                  title="Sentiment Distribution",
                  color_discrete_map={
@@ -204,6 +229,6 @@ def create_sentiment_distribution_chart(df):
                      'negative': '#dc3545',
                      'neutral': '#6c757d'
                  })
-    
+
     fig.update_layout(height=400)
     return fig

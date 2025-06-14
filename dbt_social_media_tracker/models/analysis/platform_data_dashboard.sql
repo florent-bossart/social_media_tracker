@@ -14,7 +14,7 @@ SELECT
     AVG(sa.sentiment_strength) as avg_sentiment,
     COALESCE(pa.active_artists, 0) as active_artists
 FROM {{ source('analytics', 'entity_extraction') }} ee
-LEFT JOIN {{ source('analytics', 'sentiment_analysis') }} sa 
+LEFT JOIN {{ source('analytics', 'sentiment_analysis') }} sa
     ON ee.original_text = sa.original_text
 LEFT JOIN (
     SELECT

@@ -17,7 +17,7 @@ def get_artist_trends():
     """Fetch artist trends from DBT view - replaces complex CTE logic"""
     query = """
     SELECT * FROM analytics.artist_trends_dashboard
-    LIMIT 50
+    LIMIT 100
     """
     result = fetch_data(query)
     return decode_artist_names(result)
@@ -39,7 +39,7 @@ def get_platform_data():
     """
     return fetch_data(query)
 
-@st.cache_data
+@st.cache_data(ttl=300)  # Cache for 5 minutes only
 def get_temporal_data():
     """Fetch temporal trends data from DBT view"""
     query = """
@@ -86,16 +86,12 @@ def get_trend_summary_data():
         """
         overview_data = fetch_data(overview_query)
 
-        # Get top genres data with NaN filtering
+        # Get top genres data from normalized view
         genres_query = """
-        SELECT * FROM analytics.trend_summary_top_genres
+        SELECT * FROM analytics.trend_summary_top_genres_normalized
         WHERE analysis_timestamp = (
-            SELECT MAX(analysis_timestamp) FROM analytics.trend_summary_top_genres
+            SELECT MAX(analysis_timestamp) FROM analytics.trend_summary_top_genres_normalized
         )
-        AND LOWER(genre_name) != 'nan'
-        AND LOWER(genre_name) != 'null'
-        AND genre_name IS NOT NULL
-        AND TRIM(genre_name) != ''
         ORDER BY popularity_score DESC
         LIMIT 15
         """
@@ -198,6 +194,70 @@ def get_artist_sentiment_data():
     """
     result = fetch_data(query)
     return decode_artist_names(result)
+
+# =============================================================================
+# ENRICHED DASHBOARD FUNCTIONS - New views with intermediate schema joins
+# =============================================================================
+
+@st.cache_data
+def get_artist_trends_enriched():
+    """Fetch enriched artist trends with source context from intermediate schema"""
+    query = """
+    SELECT * FROM analytics.artist_trends_enriched_dashboard
+    ORDER BY total_mentions DESC
+    LIMIT 100
+    """
+    try:
+        result = fetch_data(query)
+        return decode_artist_names(result)
+    except Exception as e:
+        st.warning(f"Enriched artist trends not available yet: {e}")
+        return pd.DataFrame()
+
+@st.cache_data  
+def get_url_analysis_data():
+    """Fetch URL analysis data showing which URLs are associated with artist mentions"""
+    query = """
+    SELECT * FROM analytics.url_analysis_dashboard
+    ORDER BY mention_count DESC
+    LIMIT 50
+    """
+    try:
+        result = fetch_data(query)
+        return decode_artist_names(result)
+    except Exception as e:
+        st.warning(f"URL analysis data not available yet: {e}")
+        return pd.DataFrame()
+
+@st.cache_data
+def get_video_context_data():
+    """Fetch video context data showing YouTube videos with high artist mentions"""
+    query = """
+    SELECT * FROM analytics.video_context_dashboard
+    ORDER BY total_artist_mentions DESC
+    LIMIT 30
+    """
+    try:
+        result = fetch_data(query)
+        return result
+    except Exception as e:
+        st.warning(f"Video context data not available yet: {e}")
+        return pd.DataFrame()
+
+@st.cache_data
+def get_author_influence_data():
+    """Fetch author influence data showing most influential users"""
+    query = """
+    SELECT * FROM analytics.author_influence_dashboard
+    ORDER BY total_mentions DESC
+    LIMIT 50
+    """
+    try:
+        result = fetch_data(query)
+        return decode_artist_names(result)
+    except Exception as e:
+        st.warning(f"Author influence data not available yet: {e}")
+        return pd.DataFrame()
 
 def decode_artist_names(df):
     """Apply URL decoding to artist names in a DataFrame"""

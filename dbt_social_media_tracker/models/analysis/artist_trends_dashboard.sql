@@ -1,47 +1,33 @@
 {{ config(materialized='view') }}
 
-WITH deduplicated_data AS (
-    SELECT DISTINCT ON (ee.original_text, ee.source_platform)
-        ee.original_text,
-        ee.source_platform,
-        ee.entities_artists,
-        ee.confidence_score,
-        sa.sentiment_strength
-    FROM {{ source('analytics', 'entity_extraction') }} ee
-    LEFT JOIN {{ source('analytics', 'sentiment_analysis') }} sa 
-        ON ee.original_text = sa.original_text
-    WHERE ee.entities_artists IS NOT NULL
-        AND jsonb_array_length(ee.entities_artists) > 0
-),
-artist_stats AS (
+WITH artist_stats AS (
     SELECT
-        LOWER(jsonb_array_elements_text(dd.entities_artists)) as artist_name_lower,
+        artist_name_lower,
+        artist_name,
         COUNT(*) as mention_count,
-        AVG(dd.confidence_score) as avg_confidence,
-        COUNT(DISTINCT dd.source_platform) as platform_count,
-        AVG(COALESCE(dd.sentiment_strength, 5.0)) as sentiment_score
-    FROM deduplicated_data dd
-    GROUP BY artist_name_lower
+        AVG(confidence_score) as avg_confidence,
+        COUNT(DISTINCT source_platform) as platform_count,
+        AVG(COALESCE(sentiment_strength, 5.0)) as sentiment_score
+    FROM {{ ref('int_extracted_artists') }}
+    GROUP BY artist_name_lower, artist_name
     HAVING COUNT(*) >= 3  -- Only artists with at least 3 mentions
 ),
 filtered_artists AS (
     SELECT
         artist_name_lower,
+        artist_name,
         mention_count,
         avg_confidence,
         platform_count,
         sentiment_score
     FROM artist_stats
-    WHERE artist_name_lower NOT ILIKE 'hall of%'
+    WHERE artist_name_lower NOT IN ( 'moa', 'momo', 'su-metal', 'unknown')  -- Excluded from trending
+        AND artist_name_lower NOT ILIKE 'hall of%'
         AND artist_name_lower NOT ILIKE '%playlist%'
-        AND artist_name_lower != 'moa'
-        AND artist_name_lower != 'momo'
-        AND artist_name_lower != 'su-metal'
-        AND artist_name_lower != 'unknown'
         AND LENGTH(artist_name_lower) > 2
 )
 SELECT
-    INITCAP(artist_name_lower) as artist_name,
+    artist_name,
     CASE
         WHEN artist_name_lower = 'babymetal' THEN CAST(mention_count * 0.2 AS INTEGER)
         ELSE mention_count

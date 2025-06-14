@@ -1,0 +1,22 @@
+version: 2
+
+models:
+  - name: int_extracted_artists
+    description: "Intermediate model that extracts and normalizes artist data from JSONB, avoiding expensive operations in dashboard models"
+    columns:
+      - name: original_text
+        description: "Original text from entity extraction"
+      - name: source_platform
+        description: "Platform where the text originated"
+      - name: artist_name_lower
+        description: "Artist name in lowercase for consistent grouping"
+      - name: artist_name
+        description: "Artist name with proper capitalization"
+      - name: has_genre
+        description: "1 if artist has associated genres, 0 otherwise"
+      - name: confidence_score
+        description: "Confidence score from entity extraction"
+      - name: overall_sentiment
+        description: "Overall sentiment category"
+      - name: sentiment_strength
+        description: "Sentiment strength score"

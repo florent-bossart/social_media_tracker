@@ -7,7 +7,7 @@
     ]
 ) }}
 
-SELECT
+SELECT distinct
     id AS comment_pk,
     video_id,
     comment_id,

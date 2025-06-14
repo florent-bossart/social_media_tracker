@@ -1,7 +1,7 @@
 {{ config(materialized='view') }}
 
-SELECT 
-    word, 
+SELECT
+    word,
     frequency
 FROM {{ source('analytics', 'wordcloud_data') }}
 WHERE frequency >= 50

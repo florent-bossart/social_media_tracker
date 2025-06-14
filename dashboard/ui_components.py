@@ -41,7 +41,7 @@ def create_header():
         '<h1>🎌 Japanese Music Trends Dashboard</h1>'
         '<p>Social Media Analytics for J-Pop, City Pop, Anime Music & More</p>'
         '<p><strong>🚀 Powered by DBT Models</strong></p>'
-        '</div>', 
+        '</div>',
         unsafe_allow_html=True
     )
 
@@ -56,7 +56,10 @@ def create_sidebar():
         "📱 Platform Insights",
         "💭 Sentiment Deep Dive",
         "📈 AI Trend Summary",
-        "🔍 AI Insights"
+        "🔍 AI Insights",
+        "🔗 Content Discovery",
+        "👥 Author Influence",
+        "🎬 Video Context"
     ])
 
 def display_metrics_row(stats):
@@ -64,15 +67,15 @@ def display_metrics_row(stats):
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
-        total_mentions = int(stats['total_extractions']) if not pd.isna(stats['total_extractions']) else 0
+        total_mentions = int(stats.get('total_extractions', 0)) if stats and 'total_extractions' in stats else 0
         st.metric("Total Extractions", f"{total_mentions:,}")
 
     with col2:
-        avg_sentiment = float(stats['avg_sentiment']) if not pd.isna(stats['avg_sentiment']) else 5.0
+        avg_sentiment = float(stats.get('avg_sentiment', 5.0)) if stats and 'avg_sentiment' in stats else 5.0
         st.metric("Average Sentiment", f"{avg_sentiment:.1f}/10")
 
     with col3:
-        unique_artists = int(stats['unique_artists']) if not pd.isna(stats['unique_artists']) else 0
+        unique_artists = int(stats.get('unique_artists', 0)) if stats and 'unique_artists' in stats else 0
         st.metric("Unique Artists", unique_artists)
 
     with col4:

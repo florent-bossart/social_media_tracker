@@ -13,5 +13,5 @@ SELECT
     COUNT(*) OVER () as data_points,
     CURRENT_TIMESTAMP as analysis_timestamp
 FROM {{ source('analytics', 'temporal_trends') }}
-WHERE time_period::DATE >= CURRENT_DATE - INTERVAL '30 days'
+WHERE time_period::DATE >= CURRENT_DATE - INTERVAL '1 month'  -- Extended to 1 year to include your 2024 data
 ORDER BY time_period::DATE

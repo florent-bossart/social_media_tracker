@@ -5,20 +5,19 @@ Japanese Music Trends Analysis Pipeline - Standalone Summarization Module
 Standalone version of the summarization module for easy testing and execution.
 Generates natural language insights and summaries from trend detection results.
 
-Author: GitHub Copilot
-Date: January 2025
 """
 
 import json
 import csv
 import logging
+import os
 from datetime import datetime
 from typing import Dict, List, Optional, Any
 from pathlib import Path
 import requests
 import time
 import argparse
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import sys
 
 # Configure logging
@@ -50,8 +49,8 @@ else: # If handlers exist, ensure at least one is for stdout at the correct leve
 @dataclass
 class SummaryConfig:
     """Configuration for the summarization process."""
-    ollama_host: str = "http://localhost:11434"
-    ollama_model: str = "llama3:8b"  # Changed from llama3.1:8b
+    ollama_host: str = field(default_factory=lambda: os.getenv('OLLAMA_HOST', 'http://localhost:11434'))
+    ollama_model: str = field(default_factory=lambda: os.getenv('OLLAMA_MODEL', 'llama3:8b'))
     ollama_timeout: int = 60
     max_retries: int = 3
     temperature: float = 0.7  # Added temperature
@@ -178,7 +177,16 @@ class TrendSummarizer:
 
     def _generate_fallback_summary(self, prompt: str) -> str: # Renamed and simplified
         """Generate basic summary when Ollama is not available"""
-        logger.warning(f"⚠️ Using fallback summary for prompt: '{prompt[:100]}...'")
+        # Rate-limit warnings to avoid spam - only warn every 50 calls
+        if not hasattr(self, '_fallback_warning_count'):
+            self._fallback_warning_count = 0
+
+        self._fallback_warning_count += 1
+        if self._fallback_warning_count == 1:
+            logger.warning(f"⚠️ Ollama service unavailable - switching to fallback mode for all summaries")
+        elif self._fallback_warning_count % 100 == 0:
+            logger.info(f"📊 Fallback mode: {self._fallback_warning_count} summaries generated without LLM")
+
         return "Trend analysis summary (fallback mode): Basic trend detection completed. For detailed AI-generated insights, ensure Ollama service is running and configured correctly."
 
     def generate_executive_summary(self, trend_data: Dict[str, Any]) -> str:
@@ -240,9 +248,9 @@ Focus on concrete observations and industry implications."""
             return insights
 
         for genre_data in genre_trends:
-            # Assuming genre_data is a dictionary similar to artist data
             # Adjust keys based on actual structure of genre_trends CSV
-            genre_name = genre_data.get('genre_name') or genre_data.get('entity_name') # Adapt as per actual CSV header
+            # Check for various possible field names for genre
+            genre_name = genre_data.get('genre') or genre_data.get('genre_name') or genre_data.get('entity_name')
             if not genre_name:
                 logger.warning(f"Skipping genre insight generation for entry with missing name: {genre_data}")
                 continue
@@ -251,11 +259,12 @@ Focus on concrete observations and industry implications."""
 
 GENRE DATA:
 - Name: {genre_name}
-- Mentions: {genre_data.get('mention_count', 'N/A')}
-- Sentiment Score: {genre_data.get('sentiment_score', 'N/A')}
-- Trend Strength: {genre_data.get('trend_strength', 'N/A')}
-- Associated Artists Count: {genre_data.get('associated_artists_count', 'N/A')}
-- Key Themes: {genre_data.get('key_themes', 'N/A')}
+- Popularity Score: {genre_data.get('popularity_score', 'N/A')}
+- Sentiment Trend: {genre_data.get('sentiment_trend', 'N/A')}
+- Artist Diversity: {genre_data.get('artist_diversity', 'N/A')}
+- Cross Platform Presence: {genre_data.get('cross_platform_presence', 'N/A')}
+- Emotional Associations: {genre_data.get('emotional_associations', 'N/A')}
+- Trend Momentum: {genre_data.get('trend_momentum', 'N/A')}
 
 Generate a concise 2-sentence professional insight about:
 1. This genre\\'s current trending status and momentum within the Japanese music scene.

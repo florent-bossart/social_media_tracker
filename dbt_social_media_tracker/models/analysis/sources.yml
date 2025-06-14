@@ -16,3 +16,12 @@ sources:
       - name: insights_summary_key_findings
       - name: insights_summary_artist_insights
       - name: wordcloud_data
+      - name: trend_summary_top_genres
+
+  - name: intermediate # Source for intermediate schema tables
+    schema: intermediate # This is the actual intermediate schema in your database
+    tables:
+      - name: cleaned_reddit_comments
+      - name: cleaned_reddit_posts
+      - name: cleaned_youtube_comments
+      - name: cleaned_youtube_videos

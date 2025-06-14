@@ -1,27 +1,22 @@
 """
 Main Dashboard for Japanese Music Trends.
 Orchestrates all components and handles the main application flow.
+IMPROVED VERSION with consolidated pages and standardized components.
 """
 
 import streamlit as st
 import pandas as pd
 import traceback
-from data_queries import (
-    get_artist_trends, get_genre_trends, get_platform_data,
-    get_temporal_data, get_wordcloud_data, get_overall_stats,
-    get_trend_summary_data, get_insights_summary_data,
-    get_genre_artist_diversity, get_artists_without_genre_count,
-    get_artist_sentiment_data, decode_artist_names, decode_genre_names,
-    decode_text_fields
+from data_manager import DataManager
+from ui_library import (
+    apply_global_styles, create_dashboard_header, Navigation,
+    StandardComponents, UITheme
 )
-from ui_components import (
-    apply_custom_css, create_header, create_sidebar, 
-    initialize_session_state
-)
+from artist_analytics_hub import artist_analytics_hub_page
+from ai_intelligence_center import ai_intelligence_center_page
+from enhanced_genre_analysis import enhanced_genre_analysis_page
 from dashboard_pages import (
-    overview_page, artist_trends_page, genre_analysis_page,
-    wordcloud_page, platform_insights_page, sentiment_deep_dive_page,
-    ai_trend_summary_page, ai_insights_page
+    overview_page, wordcloud_page, platform_insights_page, get_lucky_page
 )
 
 # Configure Streamlit page
@@ -32,127 +27,89 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Apply custom styling and create header
-apply_custom_css()
-create_header()
+# Apply global styling and create header
+apply_global_styles()
+create_dashboard_header()
 
-# Initialize session state
-initialize_session_state()
+# Initialize session state for consistent user experience
+if 'initialized' not in st.session_state:
+    st.session_state.initialized = True
+    st.session_state.last_refresh = pd.Timestamp.now()
 
-# Create sidebar navigation
-page = create_sidebar()
+# Create consolidated sidebar navigation
+page = Navigation.create_sidebar_nav()
 
-# Load data using DBT models
+# Load data using centralized DataManager
 @st.cache_data
-def load_all_data():
-    """Load all required data with error handling"""
+def load_consolidated_data():
+    """Load all required data with improved error handling and consistency"""
     try:
-        data = {}
-        
-        # Load main data
-        data['artist_data'] = decode_artist_names(get_artist_trends())
-        data['genre_data'] = get_genre_trends()
-        data['genre_artist_diversity_data'] = get_genre_artist_diversity()
-        data['artists_without_genre_count'] = get_artists_without_genre_count()
-        data['platform_data'] = get_platform_data()
-        data['temporal_data'] = get_temporal_data()
-        data['wordcloud_data'] = get_wordcloud_data()
-        data['artist_sentiment_data'] = decode_artist_names(get_artist_sentiment_data())
+        with st.spinner("Loading dashboard data..."):
+            data = {}
 
-        # Load overall stats
-        overall_stats_df = get_overall_stats()
-        if overall_stats_df.empty:
-            st.error("Error loading overall statistics: No data returned.")
-            data['stats'] = pd.Series({
-                'total_extractions': 0, 'avg_sentiment': 0.0,
-                'unique_artists': 0, 'positive_count': 0,
-                'total_sentiment_count': 0
-            })
-        else:
-            data['stats'] = overall_stats_df.iloc[0]
+            # Core data for overview and genre analysis
+            data['stats'] = DataManager.get_overall_stats()
+            data['artist_data'] = DataManager.get_artist_trends()
+            data['genre_data'] = DataManager.get_genre_trends()
+            data['genre_artist_diversity_data'] = DataManager.get_genre_artist_diversity()
+            data['artists_without_genre_count'] = DataManager.get_artists_without_genre_count()
+            data['platform_data'] = DataManager.get_platform_data()
+            data['temporal_data'] = DataManager.get_temporal_data()
+            data['wordcloud_data'] = DataManager.get_wordcloud_data()
 
-        # Load summary data
-        data['trend_summary_data'] = get_trend_summary_data()
-        data['insights_summary_data'] = get_insights_summary_data()
+            # Video context for platform insights
+            data['video_context_data'] = DataManager.get_video_context_data()
 
-        # Validate and process trend summary data
-        if data['trend_summary_data'] is not None:
-            if not isinstance(data['trend_summary_data'], dict):
-                st.warning(f"Trend summary data has unexpected format. Got {type(data['trend_summary_data'])}, expected dict.")
-                data['trend_summary_data'] = None
-            else:
-                for key, value in data['trend_summary_data'].items():
-                    if not isinstance(value, pd.DataFrame):
-                        st.warning(f"Trend summary data[{key}] has unexpected format. Got {type(value)}, expected DataFrame.")
-                        data['trend_summary_data'][key] = pd.DataFrame()
-                    else:
-                        # Apply URL decoding where appropriate
-                        if key == 'artists':
-                            data['trend_summary_data'][key] = decode_artist_names(value)
-                        elif key == 'genres':
-                            data['trend_summary_data'][key] = decode_genre_names(value)
-
-        # Validate and process insights summary data
-        if data['insights_summary_data'] is not None:
-            if not isinstance(data['insights_summary_data'], dict):
-                st.warning(f"Insights summary data has unexpected format. Got {type(data['insights_summary_data'])}, expected dict.")
-                data['insights_summary_data'] = None
-            else:
-                for key, value in data['insights_summary_data'].items():
-                    if not isinstance(value, pd.DataFrame):
-                        st.warning(f"Insights summary data[{key}] has unexpected format. Got {type(value)}, expected DataFrame.")
-                        data['insights_summary_data'][key] = pd.DataFrame()
-                    else:
-                        # Apply URL decoding where appropriate
-                        if key == 'artist_insights':
-                            data['insights_summary_data'][key] = decode_artist_names(value)
-                        elif key == 'overview':
-                            data['insights_summary_data'][key] = decode_text_fields(value, ['executive_summary'])
-
-        return data
+            return data
 
     except Exception as e:
-        st.error(f"Error loading data: {str(e)}")
-        st.text("Full Traceback:")
-        st.text(traceback.format_exc())
-        st.stop()
+        st.error(f"Error loading dashboard data: {str(e)}")
+        StandardComponents.error_display(
+            f"Data loading failed: {str(e)}", 
+            error_type="error"
+        )
+        # Return empty data structure to prevent crashes
+        return {
+            'stats': {},
+            'artist_data': pd.DataFrame(),
+            'genre_data': pd.DataFrame(),
+            'genre_artist_diversity_data': pd.DataFrame(),
+            'artists_without_genre_count': 0,
+            'platform_data': pd.DataFrame(),
+            'temporal_data': pd.DataFrame(),
+            'wordcloud_data': pd.DataFrame(),
+            'video_context_data': pd.DataFrame()
+        }
 
-# Load all data
-data = load_all_data()
+# Load consolidated data
+data = load_consolidated_data()
 
-# Route to appropriate page
+# Route to appropriate consolidated page
 if page == "🏠 Overview":
     overview_page(
-        data['stats'], 
-        data['artist_data'], 
-        data['temporal_data'], 
-        data['trend_summary_data']
+        data['stats'],
+        data['artist_data'],
+        data['temporal_data'],
+        {} # trend_summary_data will be loaded on-demand in overview page
     )
 
-elif page == "🎤 Artist Trends":
-    artist_trends_page(
-        data['artist_data'], 
-        data['platform_data']
-    )
+elif page == "🎤 Artist Analytics Hub":
+    artist_analytics_hub_page()
 
 elif page == "🎶 Genre Analysis":
-    genre_analysis_page(
-        data['genre_data'], 
-        data['genre_artist_diversity_data'], 
-        data['artists_without_genre_count']
-    )
+    enhanced_genre_analysis_page()
 
 elif page == "☁️ Word Cloud":
     wordcloud_page(data['wordcloud_data'])
 
 elif page == "📱 Platform Insights":
-    platform_insights_page(data['platform_data'])
+    platform_insights_page(data['platform_data'], data['video_context_data'])
 
-elif page == "💭 Sentiment Deep Dive":
-    sentiment_deep_dive_page(data['artist_sentiment_data'])
+elif page == "🤖 AI Intelligence Center":
+    ai_intelligence_center_page()
 
-elif page == "📈 AI Trend Summary":
-    ai_trend_summary_page(data['trend_summary_data'])
+elif page == "🎲 Get Lucky":
+    get_lucky_page()
 
-elif page == "🔍 AI Insights":
-    ai_insights_page(data['insights_summary_data'])
+# Add footer
+Navigation.page_footer()

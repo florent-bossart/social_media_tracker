@@ -32,11 +32,11 @@ def get_engine():
 def fetch_data(query, params=None):
     """
     Execute SQL query and return results as DataFrame.
-    
+
     Args:
         query (str): SQL query to execute
         params (list, optional): Parameters for the query
-        
+
     Returns:
         pd.DataFrame: Query results
     """

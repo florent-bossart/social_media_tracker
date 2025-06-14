@@ -17,12 +17,12 @@ deduped_artists AS (
         platforms,
         last_seen,
         ROW_NUMBER() OVER (
-            PARTITION BY normalized_name 
+            PARTITION BY normalized_name
             ORDER BY mention_count ASC, trend_strength ASC
         ) as rn
     FROM decoded_artists
 )
-SELECT 
+SELECT
     artist_name,
     trend_strength,
     mentions,
