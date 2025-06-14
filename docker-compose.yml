@@ -129,23 +129,20 @@ services:
 
   streamlit_dashboard:
     build:
-      context: .  # Reverted to project root
-      dockerfile: dashboard/Dockerfile  # Path relative to project root
+      context: .
+      dockerfile: dashboard/Dockerfile
     ports:
       - "8501:8501"
+    volumes:
+      - ./dashboard:/app
     environment:
       - WAREHOUSE_HOST=${WAREHOUSE_HOST}
       - WAREHOUSE_PORT=${WAREHOUSE_PORT}
       - WAREHOUSE_DB=${WAREHOUSE_DB}
       - WAREHOUSE_USER=${WAREHOUSE_USER}
       - WAREHOUSE_PASSWORD=${WAREHOUSE_PASSWORD}
-      # Add any other environment variables your Streamlit app might need
-    volumes:
-      - ./dashboard:/app/dashboard
-      - ./data:/app/data # If your dashboard needs to access local data files directly
-      # You might need to mount other directories if your dashboard script accesses them
     depends_on:
-      - social_media_tracker_db # Ensures the database is ready before Streamlit starts
+      - social_media_tracker_db
     restart: always
 
 volumes:

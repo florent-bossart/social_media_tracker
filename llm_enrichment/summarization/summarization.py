@@ -5,8 +5,6 @@ Japanese Music Trends Analysis Pipeline - Summarization Module (Stage 4)
 This module generates natural language insights and summaries from trend detection results.
 Uses Llama 3.1-8B via Ollama to create comprehensive trend reports.
 
-Author: GitHub Copilot
-Date: January 2025
 """
 
 import json

@@ -461,19 +461,45 @@ def load_trend_summary_json_to_tables(engine, file_path, target_schema, truncate
         top_genres = json_data.get("top_genres", [])
         if top_genres:
             genres_data = []
+            # Dictionary to aggregate duplicate genres
+            genre_aggregation = {}
+            
             for genre in top_genres:
-                genres_data.append({
-                    "analysis_timestamp": analysis_timestamp,
-                    "genre_name": genre.get("name"),
-                    "popularity_score": genre.get("popularity_score"),
-                    "sentiment_trend": genre.get("sentiment_trend"),
-                    "artist_diversity": genre.get("artist_diversity"),
-                    "platforms_count": genre.get("platforms_count"),
-                    "source_file": source_file
-                })
+                original_name = genre.get("name")
+                normalized_name = normalize_genre_name(original_name)
+                
+                # If we've seen this normalized genre before, aggregate the data
+                if normalized_name in genre_aggregation:
+                    existing = genre_aggregation[normalized_name]
+                    # Sum popularity scores and artist diversity, average sentiment
+                    existing["popularity_score"] += genre.get("popularity_score", 0)
+                    existing["artist_diversity"] += genre.get("artist_diversity", 0)
+                    existing["platforms_count"] = max(existing["platforms_count"], genre.get("platforms_count", 0))
+                    # Keep sentiment trend from the genre with higher popularity
+                    if genre.get("popularity_score", 0) > existing.get("max_popularity", 0):
+                        existing["sentiment_trend"] = genre.get("sentiment_trend")
+                        existing["max_popularity"] = genre.get("popularity_score", 0)
+                else:
+                    # First time seeing this normalized genre
+                    genre_aggregation[normalized_name] = {
+                        "analysis_timestamp": analysis_timestamp,
+                        "genre_name": normalized_name,
+                        "popularity_score": genre.get("popularity_score", 0),
+                        "sentiment_trend": genre.get("sentiment_trend"),
+                        "artist_diversity": genre.get("artist_diversity", 0),
+                        "platforms_count": genre.get("platforms_count", 0),
+                        "max_popularity": genre.get("popularity_score", 0),
+                        "source_file": source_file
+                    }
+            
+            # Convert aggregated data to list, removing helper fields
+            for genre_name, genre_data in genre_aggregation.items():
+                genre_data.pop("max_popularity", None)  # Remove helper field
+                genres_data.append(genre_data)
+            
             genres_df = pd.DataFrame(genres_data)
             genres_df.to_sql("trend_summary_top_genres", engine, schema=target_schema, if_exists="append", index=False)
-            logging.info(f"Loaded {len(genres_data)} top genres into {target_schema}.trend_summary_top_genres")
+            logging.info(f"Loaded {len(genres_data)} normalized top genres into {target_schema}.trend_summary_top_genres")
 
         # Load sentiment patterns data
         sentiment_patterns = json_data.get("sentiment_patterns_artists", {})
@@ -682,6 +708,79 @@ def load_wordcloud_text_to_table(engine, file_path, target_schema, truncate_befo
         logging.error("DataFrame head:\n%s", df.head().to_string())
 
 
+def normalize_genre_name(genre_name):
+    """
+    Normalize genre names to eliminate duplicates due to case differences.
+    Follows the same logic as the DBT models for consistency.
+    """
+    if not genre_name or not isinstance(genre_name, str):
+        return genre_name
+    
+    genre_lower = genre_name.lower().strip()
+    
+    # Apply normalization mapping
+    genre_mappings = {
+        # Pop variations
+        'pop': 'J-Pop', 'j-pop': 'J-Pop', 'jpop': 'J-Pop', 'j pop': 'J-Pop',
+        # Rock variations  
+        'rock': 'J-Rock', 'j-rock': 'J-Rock', 'jrock': 'J-Rock', 'j rock': 'J-Rock',
+        # Metal variations
+        'metal': 'Metal', 'j-metal': 'Metal', 'jmetal': 'Metal',
+        # Hip Hop variations
+        'hip hop': 'Hip-Hop', 'hip-hop': 'Hip-Hop', 'hiphop': 'Hip-Hop', 'rap': 'Hip-Hop',
+        # Electronic variations
+        'electronic': 'Electronic', 'electro': 'Electronic', 'edm': 'Electronic',
+        # Indie variations
+        'indie': 'Indie', 'independent': 'Indie',
+        # Alternative variations
+        'alternative': 'Alternative', 'alt': 'Alternative',
+        # Punk variations
+        'punk': 'Punk', 'j-punk': 'Punk', 'jpunk': 'Punk',
+        # Folk variations
+        'folk': 'Folk', 'j-folk': 'Folk', 'jfolk': 'Folk',
+        # Jazz variations
+        'jazz': 'Jazz', 'j-jazz': 'Jazz', 'jjazz': 'Jazz',
+        # Classical variations
+        'classical': 'Classical', 'classic': 'Classical',
+        # Blues variations
+        'blues': 'Blues', 'j-blues': 'Blues', 'jblues': 'Blues',
+        # R&B variations
+        'r&b': 'R&B', 'rnb': 'R&B', 'r and b': 'R&B', 'rhythm and blues': 'R&B',
+        # Vocal variations
+        'vocal': 'Vocal', 'vocals': 'Vocal',
+        # Common metal sub-genres
+        'black metal': 'Black Metal', 'blackmetal': 'Black Metal',
+        'death metal': 'Death Metal', 'deathmetal': 'Death Metal',
+        'power metal': 'Power Metal', 'powermetal': 'Power Metal',
+        'heavy metal': 'Heavy Metal', 'heavymetal': 'Heavy Metal',
+        'thrash metal': 'Thrash Metal', 'thrashmetal': 'Thrash Metal', 'thrash': 'Thrash Metal',
+        'nu metal': 'Nu Metal', 'numetal': 'Nu Metal', 'nu-metal': 'Nu Metal',
+        # Post genres
+        'post rock': 'Post-Rock', 'post-rock': 'Post-Rock', 'postrock': 'Post-Rock',
+        'post punk': 'Post-Punk', 'post-punk': 'Post-Punk', 'postpunk': 'Post-Punk',
+        # Electronic sub-genres
+        'drum and bass': 'Drum & Bass', 'dnb': 'Drum & Bass', 'd&b': 'Drum & Bass', 'drum&bass': 'Drum & Bass',
+        'dubstep': 'Dubstep', 'dub step': 'Dubstep',
+        'house': 'House', 'tech house': 'House',
+        'techno': 'Techno', 'tech': 'Techno',
+        'trance': 'Trance', 'psytrance': 'Trance',
+        # Other common variations
+        'acoustic': 'Acoustic', 'unplugged': 'Acoustic',
+        'experimental': 'Experimental', 'avant-garde': 'Experimental',
+        'progressive': 'Progressive', 'prog': 'Progressive',
+        'ambient': 'Ambient', 'chillout': 'Ambient', 'chill': 'Ambient',
+        'new wave': 'New Wave', 'newwave': 'New Wave',
+        'shoegaze': 'Shoegaze', 'shoe gaze': 'Shoegaze',
+    }
+    
+    # Check if we have a specific mapping
+    if genre_lower in genre_mappings:
+        return genre_mappings[genre_lower]
+    
+    # Default: Use proper title case
+    return genre_name.title()
+
+# ...existing code...
 def main():
     parser = argparse.ArgumentParser(description="Load LLM pipeline outputs into PostgreSQL analytics schema.")
     parser.add_argument("--entities-file-reddit", type=str, help="Path to the Reddit entity extraction CSV file.")

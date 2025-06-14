@@ -1,0 +1,24 @@
+version: 2
+
+models:
+  - name: genre_artists_dashboard
+    description: "Artists associated with each genre from entity extraction data with normalized genre names"
+    columns:
+      - name: genre_name
+        description: "Normalized genre name"
+        tests:
+          - not_null
+      - name: artist_name
+        description: "Artist name"
+        tests:
+          - not_null
+      - name: mention_count
+        description: "Number of times the artist was mentioned in this genre context"
+      - name: avg_confidence
+        description: "Average confidence score from entity extraction"
+      - name: sentiment_score
+        description: "Average sentiment score for the artist in this genre"
+      - name: platform_count
+        description: "Number of platforms where the artist-genre association was found"
+      - name: artist_rank
+        description: "Rank of artist within the genre by mention count"

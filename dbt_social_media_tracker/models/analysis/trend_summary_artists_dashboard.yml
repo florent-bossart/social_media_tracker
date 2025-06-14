@@ -1,0 +1,20 @@
+version: 2
+
+models:
+  - name: trend_summary_artists_dashboard
+    description: "Deduped and decoded artist trends from trend summary with URL decoding"
+    columns:
+      - name: artist_name
+        description: "Artist name (may contain URL-decoded characters)"
+      - name: trend_strength
+        description: "Trend strength score"
+      - name: mentions
+        description: "Number of mentions"
+      - name: sentiment_score
+        description: "Sentiment score"
+      - name: sentiment_direction
+        description: "Sentiment direction"
+      - name: platforms
+        description: "Platforms where artist appears (JSONB)"
+      - name: last_seen
+        description: "Last seen timestamp"

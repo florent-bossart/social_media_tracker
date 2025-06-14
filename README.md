@@ -1,41 +1,27 @@
 # 📊 Project: Social Media Sentiment Tracker for Global Trends
 
-## PROJECT STATUS :
-[DONE]
-Docker compose for DBT, AIRFLOW, POSTGRES Database, FastAPI container to query youtube and reddit easily
-Built API query logic + file generation
-Built json to postgres load + Airflow dags
-Started playing with DBT/do some data cleaning
-Test different LLM to detect trends
-Define PROD data model
-Write DAGS for full orchestration
-Added LLM using laptop GPU + tunneling (program still triggered from the VM)
-  - Entity extraction is working - ~6 hours for reddit extraction
-  - sentiment analysis - 6 hours youtube / 18hours reddit
-  - Trend detection - TBD
-  - Summarization - TBD
-Added DBT transformation using
+## How to use :
 
+Install poetry with the dependencies from pyproject.toml
+Install docker
+Create an account on GCP to be able to query youtube API. Look for the API in GCP and it should guide you on what you need to do.
+Create an account for Reddit API https://www.reddit.com/prefs/apps
+Copy and complete env_file.example
+Install Ollama https://ollama.com/  Linux : curl -fsSL https://ollama.com/install.sh | sh
+Install ollama models : ollama pull llama3:7b
+
+Run docker compose build, then docker compose up. Then you will be able to manually trigger each step from Airflow.
+!!! The LLM part takes a lot of processing, you can use different machines to run the LLM part, you will need to set up a tunnel from your execution environment to the processing machine, and install Ollama on the processing machine !!!
+
+## PROJECT STATUS :
 
 [NEXT]
-Clean the code base
-Test Trend and Summarization
-Adapt final data model if needed.
-add streamlit + build dashboard
-
-
-[LATER]
-Work on presentation
-
-[ENHANCEMENTS]
+Improve the code base
 Add logging
 Better error handling
 Unit tests
 Refactor duplicated code
 More doc
-
-
-
 
 
 ## 📝 Project Description

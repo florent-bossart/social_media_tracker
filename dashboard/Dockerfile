@@ -4,23 +4,26 @@ FROM python:3.10-slim
 # Set the working directory in the container
 WORKDIR /app
 
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
+
 # Install Poetry
 RUN pip install poetry
 
-# Copy only pyproject.toml and poetry.lock to leverage Docker cache
-COPY pyproject.toml poetry.lock* /app/
+# Copy only dependency files first to leverage Docker cache
+COPY dashboard/pyproject.toml dashboard/poetry.lock* /app/
 
-# Install project dependencies
-# --no-root is used because we are not installing the project itself as a package, just its dependencies
-# --only main is used to not install development dependencies
-RUN poetry config virtualenvs.create false && poetry install --only main --no-root
+# Configure Poetry and install dependencies
+RUN poetry config virtualenvs.create false && \
+    poetry install --only main --no-root
 
-# Copy the rest of the dashboard application code into the container
-COPY . /app/dashboard
+# Copy only the dashboard application files
+COPY dashboard/*.py /app/
 
 # Expose the port Streamlit runs on
 EXPOSE 8501
 
 # Command to run the Streamlit application
-# We use the dashboard subdirectory explicitly if dashboard.py is inside it.
-CMD ["streamlit", "run", "dashboard/dashboard.py", "--server.port=8501", "--server.address=0.0.0.0"]
+CMD ["streamlit", "run", "main_dashboard.py", "--server.port=8501", "--server.address=0.0.0.0"]

@@ -1,0 +1,14 @@
+version: 2
+
+models:
+  - name: platform_data_dashboard
+    description: "Platform comparison data with artist counting and sentiment averaging"
+    columns:
+      - name: platform
+        description: "Platform name"
+      - name: total_mentions
+        description: "Total mentions on this platform"
+      - name: avg_sentiment
+        description: "Average sentiment score for this platform"
+      - name: active_artists
+        description: "Number of unique artists active on this platform"

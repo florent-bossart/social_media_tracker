@@ -1,0 +1,8 @@
+version: 2
+
+models:
+  - name: artists_without_genre_dashboard
+    description: "Count of artists without genre assignment using CTEs"
+    columns:
+      - name: artists_without_genre
+        description: "Total count of artists without genre assignment"

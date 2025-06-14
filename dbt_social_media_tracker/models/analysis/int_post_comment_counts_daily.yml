@@ -1,0 +1,18 @@
+version: 2
+
+models:
+  - name: int_post_comment_counts_daily
+    description: "Intermediate model counting comments per post per day from cleaned Reddit comments"
+    columns:
+      - name: post_id
+        description: "Unique identifier for the Reddit post"
+        tests:
+          - not_null
+      - name: comment_creation_date_yyyymmdd
+        description: "Date when comments were created in YYYYMMDD format"
+        tests:
+          - not_null
+      - name: daily_comments_on_post
+        description: "Count of comments created on this post on this specific date"
+        tests:
+          - not_null

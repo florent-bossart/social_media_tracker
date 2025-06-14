@@ -2,11 +2,15 @@ import os
 import sys
 from datetime import datetime
 import argparse # Added import
+from dotenv import load_dotenv
 
 # Add the project root to the Python path
 # Assuming this script is in data_pipeline, the project root is one level up
 _PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(_PROJECT_ROOT)
+
+# Load environment variables from .env file in project root
+load_dotenv(dotenv_path=os.path.join(_PROJECT_ROOT, '.env'))
 
 # Now that sys.path is updated, try importing from the (now correctly referenced) data_pipeline module
 # The original script was in the root, so it imported run_complete_pipeline directly.
@@ -75,22 +79,22 @@ def main(): # Renamed from run_extraction_for_files and added arguments
     logger.info(f"Processing file: {input_file_path} for platform: {platform}")
 
     # Determine the entity extraction host
-    # Priority: CLI arg -> Environment Variable (e.g. YOUTUBE_LLM_HOST if platform matches) -> Default in run_entity_extraction
-    # For simplicity in this specific script, we'll prioritize CLI, then let run_entity_extraction handle its defaults.
-    # run_entity_extraction in run_complete_pipeline.py already has logic for host selection.
-    # We need to pass the ollama_host from args to run_entity_extraction.
-    # The run_entity_extraction function expects ollama_host_url as its last parameter.
-    # It does not automatically pick up DEFAULT_ENTITY_EXTRACTION_HOST from run_complete_pipeline if None is passed.
-    # It needs an explicit host or it will fail if its internal config doesn't specify one.
-
-    # Get the default entity extraction host from run_complete_pipeline if args.ollama_host is not set
+    # Priority: CLI arg -> Platform-specific Environment Variable -> Default in run_entity_extraction
     effective_ollama_host = args.ollama_host
+
     if not effective_ollama_host:
-        # This import is tricky due to potential circular dependencies if not handled carefully.
-        # Assuming run_complete_pipeline.py is in data_pipeline.
-        from data_pipeline.run_complete_pipeline import DEFAULT_ENTITY_EXTRACTION_HOST
-        effective_ollama_host = DEFAULT_ENTITY_EXTRACTION_HOST
-        logger.info(f"No --ollama-host provided, using default from run_complete_pipeline: {effective_ollama_host}")
+        # Check for platform-specific environment variables
+        platform_host_var = f"{platform.upper()}_LLM_HOST"
+        platform_host = os.getenv(platform_host_var)
+
+        if platform_host:
+            effective_ollama_host = platform_host.strip('"')  # Remove quotes if present
+            logger.info(f"Using platform-specific host from {platform_host_var}: {effective_ollama_host}")
+        else:
+            # Fall back to default from run_complete_pipeline
+            from data_pipeline.run_complete_pipeline import DEFAULT_ENTITY_EXTRACTION_HOST
+            effective_ollama_host = DEFAULT_ENTITY_EXTRACTION_HOST
+            logger.info(f"No platform-specific host found, using default: {effective_ollama_host}")
 
     result = run_entity_extraction(logger, str(input_file_path), str(output_dir_path), effective_ollama_host)
 

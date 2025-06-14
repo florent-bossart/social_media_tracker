@@ -1,0 +1,12 @@
+version: 2
+
+models:
+  - name: genre_artist_diversity_dashboard
+    description: "Genre artist diversity analysis from analytics.genre_trends"
+    columns:
+      - name: genre
+        description: "Genre name"
+      - name: artist_diversity
+        description: "Number of different artists in this genre"
+      - name: popularity_score
+        description: "Popularity score for the genre"

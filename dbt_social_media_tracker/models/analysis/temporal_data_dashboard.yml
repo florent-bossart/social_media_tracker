@@ -1,0 +1,18 @@
+version: 2
+
+models:
+  - name: temporal_data_dashboard
+    description: "Temporal trends data from analytics.temporal_trends with trend strength calculation"
+    columns:
+      - name: date
+        description: "Time period date"
+      - name: sentiment_shift
+        description: "Sentiment shift value"
+      - name: engagement_pattern
+        description: "Engagement pattern description"
+      - name: trend_strength
+        description: "Calculated trend strength based on sentiment shift magnitude"
+      - name: data_points
+        description: "Total number of data points in dataset"
+      - name: analysis_timestamp
+        description: "Timestamp of analysis"

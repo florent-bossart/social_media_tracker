@@ -1,0 +1,20 @@
+version: 2
+
+models:
+  - name: artist_trends_dashboard
+    description: "Complex artist trends analysis with deduplication, filtering, and sentiment correlation for dashboard consumption"
+    columns:
+      - name: artist_name
+        description: "Artist name (properly capitalized)"
+      - name: mention_count
+        description: "Number of mentions (adjusted for specific artists like BabyMetal)"
+      - name: sentiment_score
+        description: "Average sentiment score"
+      - name: trend_strength
+        description: "Trend strength based on confidence score"
+      - name: trend_direction
+        description: "Trend direction (positive, negative, neutral)"
+      - name: engagement_level
+        description: "Engagement level (high, medium, low)"
+      - name: platform_count
+        description: "Number of platforms where artist is mentioned"

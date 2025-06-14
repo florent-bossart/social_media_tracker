@@ -1,0 +1,17 @@
+version: 2
+
+models:
+  - name: wordcloud_data_dashboard
+    description: "Word cloud data with frequency filtering for dashboard display"
+    columns:
+      - name: word
+        description: "Word from text analysis"
+        tests:
+          - not_null
+          - unique
+      - name: frequency
+        description: "Frequency of the word (filtered to >= 50)"
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: ">= 50"
