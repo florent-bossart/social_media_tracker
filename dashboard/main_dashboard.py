@@ -89,8 +89,7 @@ if page == "🏠 Overview":
     overview_page(
         data['stats'],
         data['artist_data'],
-        data['temporal_data'],
-        {} # trend_summary_data will be loaded on-demand in overview page
+        data['temporal_data']
     )
 
 elif page == "🎤 Artist Analytics Hub":
