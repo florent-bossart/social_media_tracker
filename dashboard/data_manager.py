@@ -7,7 +7,7 @@ import streamlit as st
 import pandas as pd
 from urllib.parse import unquote
 from database_service import fetch_data
-from typing import Dict, Optional, Any
+from typing import Dict, Optional, Any, List
 
 class DataManager:
     """Centralized data management with consistent caching and transformations"""
@@ -410,6 +410,20 @@ class DataManager:
             return fallback or pd.DataFrame()
 
     # === GET LUCKY FEATURE ===
+    
+    @staticmethod
+    @st.cache_data(ttl=300)  # Cache for 5 minutes since YouTube API has quota limits
+    def get_artist_youtube_videos(artist_name: str) -> List[Dict[str, Any]]:
+        """Get YouTube videos for an artist using the YouTube API"""
+        try:
+            from youtube_search import search_artist_videos
+            return search_artist_videos(artist_name, max_results=5)
+        except ImportError:
+            st.warning("YouTube API not available. Please check API configuration.")
+            return []
+        except Exception as e:
+            st.error(f"Error fetching YouTube videos: {e}")
+            return []
     
     @staticmethod
     @st.cache_data(ttl=60)  # Cache for 1 minute to allow quick re-rolls

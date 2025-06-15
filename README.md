@@ -1,4 +1,10 @@
-# 📊 Project: Social Media Sentiment Tracker for Global Trends
+# 📊 Project: Japanese Music trends Detection
+
+## 📝 Project Description
+
+Automated data pipeline that tracks trending artists on social media (like youtube and Reddit), analyzes the sentiment of public posts in real-time on a Daily basis, and visualizes evolving public opinions on different themes (e.g., tech innovations, climate change, major events).
+The pipeline is orchestrated using **Airflow**, and data transformation is handled by **DBT**, ensuring clean and analyzable datasets. The project will use cost-free or low-cost data sources and open-source tools to avoid cloud expenses.
+
 
 ## How to use :
 
@@ -11,30 +17,30 @@ Install Ollama https://ollama.com/  Linux : curl -fsSL https://ollama.com/instal
 Install ollama models : ollama pull llama3:7b
 
 Run docker compose build, then docker compose up. Then you will be able to manually trigger each step from Airflow.
+TODO :
+- List DAGS
+- Add LLM calls example/improve for possible DAG calls.
 !!! The LLM part takes a lot of processing, you can use different machines to run the LLM part, you will need to set up a tunnel from your execution environment to the processing machine, and install Ollama on the processing machine !!!
 
 ## PROJECT STATUS :
 
 [NEXT]
-Improve the code base
 Add logging
 Better error handling
 Unit tests
-Refactor duplicated code
 More doc
+Improve LLM calls
+
+--
 
 
-## 📝 Project Description
-
-Build an automated data pipeline that tracks trending hashtags and topics on social media (like Twitter/X and Reddit), analyzes the sentiment of public posts in real-time or near-real-time, and visualizes evolving public opinions on different themes (e.g., tech innovations, climate change, major events).
-The pipeline will be orchestrated using **Airflow**, and data transformation will be handled by **DBT**, ensuring clean and analyzable datasets. The project will use cost-free or low-cost data sources and open-source tools to avoid cloud expenses.
 
 ### Key Highlights:
 - ✅ Data ingestion from APIs
 - ✅ Data orchestration with Airflow
 - ✅ Data transformation and modeling with DBT
 - ✅ Natural Language Processing (Sentiment Analysis)
-- ✅ Interactive dashboard for stakeholders
+- ✅ Interactive dashboard for stakeholders with Streamlit
 
 ---
 
@@ -68,7 +74,7 @@ The pipeline will be orchestrated using **Airflow**, and data transformation wil
 
 ### 4. Models
 - Open-source libraries:
-  - Translation JP to EN (youtube only) => MARIANMT
+  - Translation JP to EN (youtube only) => NLLB200
   - Entity Extraction => OLLAMA
   - Sentiment Analysis => OLLAMA
   - Trend detection => OLLAMA
@@ -76,7 +82,7 @@ The pipeline will be orchestrated using **Airflow**, and data transformation wil
 
 ### 5. Workflow Orchestration (Airflow)
 - Automate the pipeline:
-  - Extract → Load → Transform (DBT) → Transform (Python/LLM) → Load  → Analyze
+  - Extract → Load → Transform (DBT) → Transform (Python/LLM) → Load  → Transform (DBT) →  Analyze
   - Schedule  daily
 
 ### 6. Visualization
@@ -86,41 +92,3 @@ The pipeline will be orchestrated using **Airflow**, and data transformation wil
   - Positive/negative sentiment spikes
 - Tools:
   - Streamlit (Python-friendly)
-
-
-### 7. Optional Enhancements (Bonus 🚀)
-- **Trend Detection:** Simple anomaly detection for spikes.
-- **Dockerization:** Containerize the entire project for portability.
-
----
-
-## 📅 Timeline Suggestion
-
-| Step | Task |
-|------|------|
-| **1** | Set up Airflow, Postgres, DBT, connect APIs |
-| **2** | Build ETL pipeline, store raw data, basic transformations |
-| **3** | Implement sentiment analysis, create DBT models |
-| **4** | Build dashboard, test end-to-end automation |
-| **5** | Polish project, add optional enhancements, write documentation |
-| **6** | Prepare presentation and portfolio showcase |
-
----
-
-## ✅ Project Outcome
-
-- 🚀 End-to-end automated data pipeline (Airflow + DBT + APIs)
-- 🔍 Clean, transformed datasets with sentiment scores
-- 📊 Visual dashboard for non-technical stakeholders
-- 🛎️ Optional: Alerts and trend detection
-- 💼 Resume-ready project & strong interview case study!
-
----
-
-## 🧩 Optional Next Steps
-
-- [x] Define target hashtags/topics
-- [ ] Set up GitHub repository and CI/CD (GitHub Actions)
-- [ ] Prepare project demo video or presentation slides
-- [x] (Optional) Add Docker Compose for full project deployment
-- [ ] Write blog post or LinkedIn article about the project 🚀

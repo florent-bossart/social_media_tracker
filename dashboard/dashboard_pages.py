@@ -18,11 +18,11 @@ from visualizations import (
 )
 from ui_components import (
     display_metrics_row, display_top_artists_sidebar,
-    display_temporal_summary, display_trend_summary_overview,
+    display_temporal_summary,
     display_artist_details
 )
 
-def overview_page(stats, artist_data, temporal_data, trend_summary_data):
+def overview_page(stats, artist_data, temporal_data):
     """Render the overview page"""
     st.header("🌟 Music Social Media Landscape")
 
@@ -41,6 +41,7 @@ def overview_page(stats, artist_data, temporal_data, trend_summary_data):
         - Which artists are currently generating the most buzz
         - Overall health and activity of the Japanese music community online
         - Emerging trends and discussion patterns
+        - Real-time social media engagement across platforms
         """)
 
     # Key metrics row
@@ -64,9 +65,6 @@ def overview_page(stats, artist_data, temporal_data, trend_summary_data):
         fig = create_temporal_trends(temporal_data)
         if fig:
             st.plotly_chart(fig, use_container_width=True)
-
-    # Trend summary overview
-    display_trend_summary_overview(trend_summary_data)
 
 def artist_trends_page(artist_data, platform_data):
     """Render the artist trends page"""
@@ -1425,7 +1423,7 @@ def get_lucky_page():
             )
 
     # Create tabs for detailed information
-    tab1, tab2, tab3, tab4 = st.tabs(["🎵 Genres", "📱 Platform Presence", "💭 Sentiment Details", "🤖 AI Insights"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["🎵 Genres", "📱 Platform Presence", "💭 Sentiment Details", "🤖 AI Insights", "🎥 YouTube Videos"])
     
     with tab1:
         st.subheader("🎵 Associated Genres")
@@ -1526,23 +1524,12 @@ def get_lucky_page():
             st.info(f"No AI insights available for {artist_name} yet.")
             st.markdown("*AI insights are generated based on discussion patterns and community engagement.*")
 
-    # Discovery suggestions
-    st.markdown("---")
-    st.subheader("🔍 Want to Learn More?")
-    
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        if st.button(f"🎤 View {artist_name} in Artist Hub"):
-            st.info("Navigate to Artist Analytics Hub and search for this artist!")
-    
-    with col2:
-        genres = profile.get('genres', [])
-        if genres:
-            primary_genre = genres[0]
-            if st.button(f"🎶 Explore {primary_genre} Genre"):
-                st.info("Navigate to Genre Analysis to explore this genre!")
-    
-    with col3:
-        if st.button("🎲 Discover Another Artist"):
-            DataManager.get_random_artist_profile.clear()
-            st.rerun()
+    with tab5:
+        try:
+            from get_lucky_youtube_patch import add_youtube_section_to_get_lucky
+            add_youtube_section_to_get_lucky(artist_name)
+        except ImportError:
+            st.warning("YouTube integration not available")
+            # Provide manual search as fallback
+            search_url = f"https://www.youtube.com/results?search_query={artist_name.replace(' ', '+')}"
+            st.markdown(f"🔍 **[Search for {artist_name} on YouTube]({search_url})**")
