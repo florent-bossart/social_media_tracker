@@ -7,6 +7,7 @@ integrating with entity extraction results and providing detailed sentiment insi
 
 import json
 import logging
+import os
 import pandas as pd
 import requests
 import time
@@ -20,6 +21,9 @@ from .sentiment_analysis_config import (
     SENTIMENT_ANALYSIS_CONFIG, SENTIMENT_ANALYSIS_PROMPTS,
     PROCESSING_CONFIG, OUTPUT_CONFIG, SENTIMENT_OUTPUT_DIR, SENTIMENT_LOG_FILE
 )
+
+# Ensure logs directory exists
+os.makedirs(os.path.dirname(SENTIMENT_LOG_FILE), exist_ok=True)
 
 # Set up logging
 logging.basicConfig(
@@ -254,7 +258,7 @@ class SentimentAnalyzer:
 
     def process_comments_batch(self, comments_df: pd.DataFrame) -> pd.DataFrame:
         """
-        Process a batch of comments for sentiment analysis
+        Process a batch of comments for sentiment analysis using bulk processing
 
         Args:
             comments_df: DataFrame with comments to analyze
@@ -264,63 +268,121 @@ class SentimentAnalyzer:
         """
         results = []
 
+        # Prepare data for bulk analysis
+        texts_for_analysis = []
+        valid_rows = []
+
         for idx, row in comments_df.iterrows():
-            logger.info(f"Processing comment {idx + 1}/{len(comments_df)}")
-
             text = row.get('original_text', '') or row.get('translated_text', '')
-            if not text:
-                logger.warning(f"No text found for row {idx}")
-                continue
+            if text and str(text).strip():
+                texts_for_analysis.append({
+                    'id': row.get('id', idx),
+                    'text': str(text).strip(),
+                    'row': row
+                })
+                valid_rows.append(row)
+            else:
+                logger.warning(f"No valid text found for row {idx}")
 
-            # Try LLM analysis first
-            sentiment_data = self.analyze_sentiment_llm(text)
+        if not texts_for_analysis:
+            logger.warning("No valid texts found for processing")
+            return pd.DataFrame()
 
-            # Fall back to rule-based if LLM fails
-            if not sentiment_data:
-                logger.info(f"Using rule-based fallback for row {idx}")
-                sentiment_data = self.analyze_basic_sentiment(text)
+        # Process in bulk chunks
+        bulk_size = PROCESSING_CONFIG.get("bulk_size", 10)
+        total_comments = len(texts_for_analysis)
 
-            # Analyze comparative sentiment if enabled
-            comparative_data = None
-            if PROCESSING_CONFIG["enable_comparative_analysis"]:
-                comparative_data = self.analyze_comparative_sentiment(text)
+        logger.info(f"Processing {total_comments} comments in chunks of {bulk_size}")
 
-            # Calculate final confidence
-            final_confidence = self.calculate_confidence_score(sentiment_data, text)
+        for i in range(0, total_comments, bulk_size):
+            chunk = texts_for_analysis[i:i+bulk_size]
+            chunk_size = len(chunk)
 
-            # Prepare result row
-            result_row = {
-                'id': row.get('id', idx),
-                'source_platform': row.get('source_platform', 'unknown'),
-                'original_text': text,
-                'analysis_date': datetime.now().strftime('%Y-%m-%d'),
-                'overall_sentiment': sentiment_data.get('overall_sentiment', 'neutral'),
-                'sentiment_strength': sentiment_data.get('sentiment_strength', 5),
-                'confidence_score': final_confidence,
-                'sentiment_reasoning': sentiment_data.get('sentiment_reasoning', ''),
+            logger.info(f"Processing bulk chunk {i//bulk_size + 1}: comments {i+1}-{i+chunk_size}")
 
-                # Aspect sentiments
-                'artist_sentiment': sentiment_data.get('sentiment_aspects', {}).get('artist_sentiment', 'none'),
-                'music_quality_sentiment': sentiment_data.get('sentiment_aspects', {}).get('music_quality_sentiment', 'none'),
-                'performance_sentiment': sentiment_data.get('sentiment_aspects', {}).get('performance_sentiment', 'none'),
-                'personal_experience_sentiment': sentiment_data.get('sentiment_aspects', {}).get('personal_experience_sentiment', 'none'),
+            # Prepare bulk data
+            texts_with_ids = [{'id': item['id'], 'text': item['text']} for item in chunk]
 
-                # Emotional indicators
-                'emotional_indicators': json.dumps(sentiment_data.get('emotional_indicators', [])),
-                'emotional_indicators_count': len(sentiment_data.get('emotional_indicators', [])),
+            # Try bulk LLM analysis
+            bulk_results = self.analyze_sentiment_bulk(texts_with_ids)
 
-                # Comparative analysis
-                'has_comparison': comparative_data is not None,
-                'comparison_type': comparative_data.get('comparison_type', '') if comparative_data else '',
-                'favorable_entities': json.dumps(comparative_data.get('favorable_entities', [])) if comparative_data else '',
-                'unfavorable_entities': json.dumps(comparative_data.get('unfavorable_entities', [])) if comparative_data else '',
-                'comparison_sentiment': comparative_data.get('comparison_sentiment', '') if comparative_data else ''
-            }
+            # Create a mapping of IDs to bulk results
+            bulk_results_map = {}
+            if bulk_results and len(bulk_results) == chunk_size:
+                for result in bulk_results:
+                    bulk_results_map[result.get('comment_id')] = result
+                logger.info(f"Bulk analysis succeeded for {len(bulk_results)} comments in chunk")
+            else:
+                logger.info(f"Bulk analysis failed or incomplete for chunk (got {len(bulk_results) if bulk_results else 0} results for {chunk_size} comments)")
 
-            results.append(result_row)
+            # Process each comment in the chunk
+            for item in chunk:
+                comment_id = item['id']
+                text = item['text']
+                row = item['row']
 
-            # Small delay to prevent overwhelming the API
-            time.sleep(0.5)
+                # Try to get result from bulk analysis
+                if comment_id in bulk_results_map:
+                    bulk_sentiment = bulk_results_map[comment_id]
+                    sentiment_data = {
+                        'overall_sentiment': bulk_sentiment.get('overall_sentiment', 'neutral'),
+                        'sentiment_strength': bulk_sentiment.get('sentiment_strength', 5),
+                        'confidence': bulk_sentiment.get('confidence', 0.7),
+                        'sentiment_aspects': bulk_sentiment.get('sentiment_aspects', {}),
+                        'emotional_indicators': bulk_sentiment.get('emotional_indicators', []),
+                        'sentiment_reasoning': bulk_sentiment.get('sentiment_reasoning', 'Bulk LLM analysis')
+                    }
+                else:
+                    # Fallback to individual LLM analysis
+                    sentiment_data = self.analyze_sentiment_llm(text)
+
+                    # Final fallback to rule-based if individual LLM also fails
+                    if not sentiment_data:
+                        logger.info(f"Using rule-based fallback for comment {comment_id}")
+                        sentiment_data = self.analyze_basic_sentiment(text)
+
+                # Analyze comparative sentiment if enabled (still individual for now)
+                comparative_data = None
+                if PROCESSING_CONFIG["enable_comparative_analysis"]:
+                    comparative_data = self.analyze_comparative_sentiment(text)
+
+                # Calculate final confidence
+                final_confidence = self.calculate_confidence_score(sentiment_data, text)
+
+                # Prepare result row
+                result_row = {
+                    'id': comment_id,
+                    'source_platform': row.get('source_platform', 'unknown'),
+                    'original_text': text,
+                    'analysis_date': datetime.now().strftime('%Y-%m-%d'),
+                    'overall_sentiment': sentiment_data.get('overall_sentiment', 'neutral'),
+                    'sentiment_strength': sentiment_data.get('sentiment_strength', 5),
+                    'confidence_score': final_confidence,
+                    'sentiment_reasoning': sentiment_data.get('sentiment_reasoning', ''),
+
+                    # Aspect sentiments
+                    'artist_sentiment': sentiment_data.get('sentiment_aspects', {}).get('artist_sentiment', 'none'),
+                    'music_quality_sentiment': sentiment_data.get('sentiment_aspects', {}).get('music_quality_sentiment', 'none'),
+                    'performance_sentiment': sentiment_data.get('sentiment_aspects', {}).get('performance_sentiment', 'none'),
+                    'personal_experience_sentiment': sentiment_data.get('sentiment_aspects', {}).get('personal_experience_sentiment', 'none'),
+
+                    # Emotional indicators
+                    'emotional_indicators': json.dumps(sentiment_data.get('emotional_indicators', [])),
+                    'emotional_indicators_count': len(sentiment_data.get('emotional_indicators', [])),
+
+                    # Comparative analysis
+                    'has_comparison': comparative_data is not None,
+                    'comparison_type': comparative_data.get('comparison_type', '') if comparative_data else '',
+                    'favorable_entities': json.dumps(comparative_data.get('favorable_entities', [])) if comparative_data else '',
+                    'unfavorable_entities': json.dumps(comparative_data.get('unfavorable_entities', [])) if comparative_data else '',
+                    'comparison_sentiment': comparative_data.get('comparison_sentiment', '') if comparative_data else ''
+                }
+
+                results.append(result_row)
+
+            # Small delay between bulk chunks to prevent overwhelming the API
+            if i + bulk_size < total_comments:
+                time.sleep(0.5)  # Reduced delay since we're processing in bulk
 
         return pd.DataFrame(results)
 
@@ -396,6 +458,65 @@ class SentimentAnalyzer:
         logger.info(f"Average confidence score: {avg_confidence:.3f}")
 
         return output_path
+
+    def analyze_sentiment_bulk(self, comments_list: List[Dict[str, Any]]) -> Optional[List[Dict[str, Any]]]:
+        """
+        Perform bulk sentiment analysis using LLM for multiple comments at once
+
+        Args:
+            comments_list: List of comment dictionaries with 'id' and 'text' keys
+
+        Returns:
+            List of sentiment analysis results or None if failed
+        """
+        if not comments_list:
+            return []
+
+        # Format comments for the bulk prompt
+        formatted_comments = []
+        for i, comment in enumerate(comments_list):
+            comment_id = comment.get('id', f'comment_{i+1}')
+            text = comment.get('text', '')
+            formatted_comments.append(f"Comment ID: {comment_id}\nText: {text}\n")
+
+        comments_text = "\n".join(formatted_comments)
+        prompt = self.prompts["bulk_prompt"].format(comments=comments_text)
+
+        response = self.call_ollama_api(prompt, max_retries=2)  # Fewer retries for bulk to fail fast
+        if not response:
+            logger.warning("Failed to get LLM response for bulk sentiment analysis")
+            return None
+
+        # DEBUG: Log the raw response to understand the format
+        logger.info(f"Raw bulk analysis response: {response[:500]}...")
+
+        # Try to extract JSON array from response
+        try:
+            # Look for JSON array in the response
+            json_match = re.search(r'\[.*\]', response, re.DOTALL)
+            if json_match:
+                json_str = json_match.group()
+                logger.info(f"Extracted JSON string: {json_str[:200]}...")
+                bulk_results = json.loads(json_str)
+
+                # Validate that we got results for all comments
+                if isinstance(bulk_results, list) and len(bulk_results) == len(comments_list):
+                    logger.info(f"Bulk analysis successful: {len(bulk_results)} results")
+                    return bulk_results
+                else:
+                    logger.warning(f"Bulk analysis returned {len(bulk_results) if isinstance(bulk_results, list) else 0} results, expected {len(comments_list)}")
+                    return None
+            else:
+                logger.warning("No JSON array found in bulk analysis response")
+                return None
+
+        except json.JSONDecodeError as e:
+            logger.warning(f"Failed to parse JSON from bulk analysis response: {e}")
+            logger.info(f"Problematic JSON: {json_str[:300] if 'json_str' in locals() else 'N/A'}...")
+            return None
+        except Exception as e:
+            logger.error(f"Unexpected error parsing bulk analysis response: {e}")
+            return None
 
 def main():
     """Main function for testing sentiment analysis"""

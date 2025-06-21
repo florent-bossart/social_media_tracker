@@ -1,7 +1,7 @@
 {{ config(materialized='view') }}
 
 WITH youtube_enriched AS (
-    SELECT 
+    SELECT
         ee.id,
         ee.source_platform,
         ee.original_text,
@@ -24,7 +24,7 @@ WITH youtube_enriched AS (
         cyv.comment_count as video_comment_count,
         cyv.duration_seconds
     FROM {{ source('analytics', 'entity_extraction') }} ee
-    INNER JOIN {{ source('intermediate', 'cleaned_youtube_comments') }} cyc 
+    INNER JOIN {{ source('intermediate', 'cleaned_youtube_comments') }} cyc
         ON ee.original_text = cyc.text_clean
     LEFT JOIN {{ source('intermediate', 'cleaned_youtube_videos') }} cyv
         ON cyc.video_id = cyv.video_id
@@ -33,7 +33,7 @@ WITH youtube_enriched AS (
         AND jsonb_array_length(ee.entities_artists) > 0
 ),
 reddit_enriched AS (
-    SELECT 
+    SELECT
         ee.id,
         ee.source_platform,
         ee.original_text,
@@ -54,7 +54,7 @@ reddit_enriched AS (
         crp.source as subreddit,
         crp.selftext_urls_array as post_urls
     FROM {{ source('analytics', 'entity_extraction') }} ee
-    INNER JOIN {{ source('intermediate', 'cleaned_reddit_comments') }} crc 
+    INNER JOIN {{ source('intermediate', 'cleaned_reddit_comments') }} crc
         ON ee.original_text = crc.body_clean
     LEFT JOIN {{ source('intermediate', 'cleaned_reddit_posts') }} crp
         ON crc.post_id = crp.post_id
@@ -62,20 +62,35 @@ reddit_enriched AS (
         AND ee.entities_artists IS NOT NULL
         AND jsonb_array_length(ee.entities_artists) > 0
 ),
+expanded_artists AS (
+    SELECT
+        TRIM(artist_element.value) as artist_name,
+        LOWER(TRIM(artist_element.value)) as artist_name_lower,
+        combined.*
+    FROM (
+        SELECT entities_artists, source_platform, confidence_score, video_id, channel_title_clean, view_count,
+               comment_id::text, id, NULL::text as post_id, NULL::text as subreddit, NULL::text[] as body_urls FROM youtube_enriched
+        UNION ALL
+        SELECT entities_artists, source_platform, confidence_score, NULL::text as video_id, NULL::text as channel_title_clean, NULL::integer as view_count,
+               comment_id::text, id, post_id::text as post_id, subreddit, body_urls FROM reddit_enriched
+    ) combined
+    CROSS JOIN LATERAL jsonb_array_elements_text(combined.entities_artists) AS artist_element(value)
+    WHERE {{ filter_valid_artists('TRIM(artist_element.value)') }}
+),
 artist_stats_enriched AS (
     SELECT
-        LOWER(jsonb_array_elements_text(entities_artists)) as artist_name_lower,
-        jsonb_array_elements_text(entities_artists) as artist_name,
+        artist_name_lower,
+        artist_name,
         source_platform,
         -- Fix: Count distinct mentions based on unique content identifiers
-        COUNT(DISTINCT CASE 
+        COUNT(DISTINCT CASE
             WHEN source_platform = 'youtube' THEN CONCAT(video_id, '-', comment_id)
             WHEN source_platform = 'reddit' THEN CONCAT(post_id, '-', comment_id)
             ELSE id::text
         END) as mention_count,
         AVG(confidence_score) as avg_confidence,
-        COUNT(DISTINCT CASE 
-            WHEN source_platform = 'youtube' THEN video_id 
+        COUNT(DISTINCT CASE
+            WHEN source_platform = 'youtube' THEN video_id
             WHEN source_platform = 'reddit' THEN CAST(post_id AS TEXT)
         END) as unique_sources_count,
         -- YouTube specific metrics
@@ -83,18 +98,12 @@ artist_stats_enriched AS (
         COUNT(DISTINCT CASE WHEN source_platform = 'youtube' THEN video_id END) as unique_videos,
         COUNT(DISTINCT CASE WHEN source_platform = 'youtube' THEN channel_title_clean END) as unique_channels,
         AVG(CASE WHEN source_platform = 'youtube' THEN view_count END) as avg_video_views,
-        -- Reddit specific metrics  
+        -- Reddit specific metrics
         COUNT(DISTINCT CASE WHEN source_platform = 'reddit' THEN CONCAT(post_id, '-', comment_id) END) as reddit_mentions,
         COUNT(DISTINCT CASE WHEN source_platform = 'reddit' THEN post_id END) as unique_posts,
         COUNT(DISTINCT CASE WHEN source_platform = 'reddit' THEN subreddit END) as unique_subreddits,
         COUNT(DISTINCT CASE WHEN source_platform = 'reddit' AND body_urls IS NOT NULL THEN CONCAT(post_id, '-', comment_id) END) as mentions_with_urls
-    FROM (
-        SELECT entities_artists, source_platform, confidence_score, video_id, channel_title_clean, view_count, 
-               comment_id::text, id, NULL::text as post_id, NULL::text as subreddit, NULL::text[] as body_urls FROM youtube_enriched
-        UNION ALL
-        SELECT entities_artists, source_platform, confidence_score, NULL::text as video_id, NULL::text as channel_title_clean, NULL::integer as view_count,
-               comment_id::text, id, post_id::text as post_id, subreddit, body_urls FROM reddit_enriched
-    ) combined
+    FROM expanded_artists
     GROUP BY artist_name_lower, artist_name, source_platform
 )
 SELECT

@@ -39,20 +39,20 @@ else:
 def search_artist_videos(artist_name: str, max_results: int = 5) -> List[Dict]:
     """
     Search for YouTube videos for a specific artist and return top results.
-    
+
     Args:
         artist_name (str): Name of the artist to search for
         max_results (int): Maximum number of results to return (default: 5)
-    
+
     Returns:
         List[Dict]: List of video information dictionaries
     """
     if not YOUTUBE_AVAILABLE or not YOUTUBE_API_KEY or not youtube:
         return []
-    
+
     if not artist_name or not isinstance(artist_name, str):
         return []
-    
+
     try:
         # Try a simple, direct search
         request = youtube.search().list(
@@ -63,33 +63,33 @@ def search_artist_videos(artist_name: str, max_results: int = 5) -> List[Dict]:
             maxResults=max_results
         )
         response = request.execute()
-        
+
         video_ids = []
         for item in response.get("items", []):
             video_id = item["id"]["videoId"]
             video_ids.append(video_id)
-        
+
         if not video_ids:
             return []
-        
+
         # Get detailed video information
         request = youtube.videos().list(
             part="snippet,statistics,contentDetails",
             id=','.join(video_ids[:max_results])
         )
         response = request.execute()
-        
+
         # Format results for the dashboard
         formatted_results = []
         for video in response.get("items", []):
             snippet = video.get("snippet", {})
             stats = video.get("statistics", {})
             content_details = video.get("contentDetails", {})
-            
+
             # Parse duration
             duration_str = content_details.get("duration", "PT0S")
             duration_seconds = parse_duration(duration_str)
-            
+
             video_info = {
                 'video_id': video['id'],
                 'title': snippet.get('title', 'Unknown Title'),
@@ -103,9 +103,9 @@ def search_artist_videos(artist_name: str, max_results: int = 5) -> List[Dict]:
                 'thumbnail_url': snippet.get('thumbnails', {}).get('medium', {}).get('url', '')
             }
             formatted_results.append(video_info)
-        
+
         return formatted_results
-        
+
     except HttpError as e:
         print(f"YouTube API HttpError: {e}")
         return []
@@ -120,25 +120,25 @@ def parse_duration(duration_str: str) -> int:
     try:
         # Remove PT prefix
         duration_str = duration_str.replace('PT', '')
-        
+
         total_seconds = 0
-        
+
         # Parse hours
         if 'H' in duration_str:
             hours_str, duration_str = duration_str.split('H')
             total_seconds += int(hours_str) * 3600
-        
+
         # Parse minutes
         if 'M' in duration_str:
             minutes_str, duration_str = duration_str.split('M')
             total_seconds += int(minutes_str) * 60
-        
+
         # Parse seconds
         if 'S' in duration_str:
             seconds_str = duration_str.replace('S', '')
             if seconds_str:
                 total_seconds += int(seconds_str)
-        
+
         return total_seconds
     except:
         return 0

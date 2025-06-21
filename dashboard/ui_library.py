@@ -11,24 +11,24 @@ from typing import Dict, List, Optional, Any
 
 class UITheme:
     """Centralized theme configuration"""
-    
+
     # Color palette
     PRIMARY_COLORS = {
         'red': '#ff6b6b',
-        'teal': '#4ecdc4', 
+        'teal': '#4ecdc4',
         'blue': '#667eea',
         'purple': '#764ba2',
         'green': '#28a745',
         'orange': '#fd7e14',
         'pink': '#e83e8c'
     }
-    
+
     SENTIMENT_COLORS = {
         'positive': '#28a745',
-        'negative': '#dc3545', 
+        'negative': '#dc3545',
         'neutral': '#6c757d'
     }
-    
+
     # Chart configuration
     CHART_CONFIG = {
         'height': 400,
@@ -38,23 +38,23 @@ class UITheme:
 
 class StandardComponents:
     """Reusable UI components with consistent styling"""
-    
+
     @staticmethod
     def page_header(title: str, icon: str, description: str = None, show_info: bool = True):
         """Standardized page header with optional info section"""
         st.header(f"{icon} {title}")
-        
+
         if description and show_info:
             with st.expander("ℹ️ What does this analysis show?", expanded=False):
                 st.markdown(description)
-        
+
         st.markdown("---")
 
     @staticmethod
     def metric_cards(metrics: Dict[str, Any], columns: int = 4):
         """Display metrics in standardized cards"""
         cols = st.columns(columns)
-        
+
         for i, (label, value) in enumerate(metrics.items()):
             with cols[i % columns]:
                 if isinstance(value, dict):
@@ -67,8 +67,8 @@ class StandardComponents:
                     st.metric(label, value)
 
     @staticmethod
-    def data_selector(df: pd.DataFrame, 
-                     column: str, 
+    def data_selector(df: pd.DataFrame,
+                     column: str,
                      label: str,
                      multi: bool = True,
                      default_count: int = 5) -> List[str]:
@@ -76,9 +76,9 @@ class StandardComponents:
         if df.empty or column not in df.columns:
             st.warning(f"No data available for {label.lower()}")
             return []
-        
+
         options = df[column].unique().tolist()
-        
+
         if multi:
             default_selection = options[:default_count] if len(options) >= default_count else options
             return st.multiselect(
@@ -90,7 +90,7 @@ class StandardComponents:
             return [st.selectbox(label, options)]
 
     @staticmethod
-    def data_table(df: pd.DataFrame, 
+    def data_table(df: pd.DataFrame,
                    title: str = None,
                    max_rows: int = 10,
                    columns: List[str] = None,
@@ -99,18 +99,18 @@ class StandardComponents:
         if df.empty:
             st.info(f"No data available{' for ' + title.lower() if title else ''}")
             return
-        
+
         if title:
             st.subheader(title)
-        
+
         display_df = df.copy()
-        
+
         # Column selection
         if columns:
             available_cols = [col for col in columns if col in display_df.columns]
             if available_cols:
                 display_df = display_df[available_cols]
-        
+
         # Search functionality
         if searchable and not display_df.empty:
             search_term = st.text_input("🔍 Search data:", key=f"search_{title}")
@@ -119,7 +119,7 @@ class StandardComponents:
                     lambda x: x.str.contains(search_term, case=False, na=False)
                 ).any(axis=1)
                 display_df = display_df[mask]
-        
+
         # Display table
         if not display_df.empty:
             st.dataframe(
@@ -127,7 +127,7 @@ class StandardComponents:
                 use_container_width=True,
                 hide_index=True
             )
-            
+
             if len(display_df) > max_rows:
                 st.info(f"Showing top {max_rows} of {len(display_df)} rows")
         else:
@@ -161,7 +161,7 @@ class StandardComponents:
 
 class StandardCharts:
     """Standardized chart components with consistent styling"""
-    
+
     @staticmethod
     def create_bar_chart(df: pd.DataFrame,
                         x_col: str,
@@ -172,11 +172,11 @@ class StandardCharts:
         """Create standardized bar chart"""
         if df.empty:
             return None
-        
+
         orientation = 'h' if horizontal else 'v'
         x_axis = y_col if horizontal else x_col
         y_axis = x_col if horizontal else y_col
-        
+
         fig = px.bar(
             df.head(20),  # Limit to top 20 for readability
             x=x_axis,
@@ -187,7 +187,7 @@ class StandardCharts:
             height=UITheme.CHART_CONFIG['height'] if not horizontal else 700,  # Taller for horizontal
             template=UITheme.CHART_CONFIG['template']
         )
-        
+
         # Enhanced styling for horizontal charts showing artist names
         if horizontal and x_col == 'artist_name':
             fig.update_layout(
@@ -203,7 +203,7 @@ class StandardCharts:
                 yaxis_title="Artist",
                 margin=dict(l=200, r=50, t=50, b=50)  # More left margin for artist names
             )
-            
+
             # Add value labels on bars
             fig.update_traces(
                 texttemplate='%{x}',
@@ -215,7 +215,7 @@ class StandardCharts:
                 font_family=UITheme.CHART_CONFIG['font_family'],
                 showlegend=bool(color_col)
             )
-        
+
         return fig
 
     @staticmethod
@@ -227,7 +227,7 @@ class StandardCharts:
         """Create standardized line chart"""
         if df.empty:
             return None
-        
+
         fig = px.line(
             df,
             x=x_col,
@@ -237,11 +237,11 @@ class StandardCharts:
             height=UITheme.CHART_CONFIG['height'],
             template=UITheme.CHART_CONFIG['template']
         )
-        
+
         fig.update_layout(
             font_family=UITheme.CHART_CONFIG['font_family']
         )
-        
+
         return fig
 
     @staticmethod
@@ -252,7 +252,7 @@ class StandardCharts:
         """Create standardized pie chart"""
         if df.empty:
             return None
-        
+
         fig = px.pie(
             df.head(10),  # Limit to top 10 for readability
             values=values_col,
@@ -261,11 +261,11 @@ class StandardCharts:
             height=UITheme.CHART_CONFIG['height'],
             template=UITheme.CHART_CONFIG['template']
         )
-        
+
         fig.update_layout(
             font_family=UITheme.CHART_CONFIG['font_family']
         )
-        
+
         return fig
 
     @staticmethod
@@ -279,7 +279,7 @@ class StandardCharts:
         """Create standardized scatter plot"""
         if df.empty:
             return None
-        
+
         fig = px.scatter(
             df,
             x=x_col,
@@ -291,16 +291,16 @@ class StandardCharts:
             height=UITheme.CHART_CONFIG['height'],
             template=UITheme.CHART_CONFIG['template']
         )
-        
+
         fig.update_layout(
             font_family=UITheme.CHART_CONFIG['font_family']
         )
-        
+
         return fig
 
 class PageLayouts:
     """Standardized page layout patterns"""
-    
+
     @staticmethod
     def two_column_layout(left_content, right_content, ratio: List[int] = [2, 1]):
         """Standard two-column layout"""
@@ -315,7 +315,7 @@ class PageLayouts:
         """Three-column metrics layout"""
         col1, col2, col3 = st.columns(3)
         cols = [col1, col2, col3]
-        
+
         for i, metric in enumerate(metrics):
             if i < len(cols):
                 with cols[i]:
@@ -326,23 +326,23 @@ class PageLayouts:
         """Standardized tabbed content layout"""
         tab_names = list(tabs_config.keys())
         tabs = st.tabs(tab_names)
-        
+
         for tab, (tab_name, content_func) in zip(tabs, tabs_config.items()):
             with tab:
                 content_func()
 
 class Navigation:
     """Navigation and routing utilities"""
-    
+
     @staticmethod
     def create_sidebar_nav() -> str:
         """Create standardized sidebar navigation"""
         st.sidebar.title("🎵 Navigation")
-        
+
         # Consolidated navigation structure
         return st.sidebar.radio("Choose a section:", [
             "🏠 Overview",
-            "🎤 Artist Analytics Hub", 
+            "🎤 Artist Analytics Hub",
             "🎶 Genre Analysis",
             "☁️ Word Cloud",
             "📱 Platform Insights",
@@ -374,7 +374,7 @@ def apply_global_styles():
             text-align: center;
             margin-bottom: 2rem;
         }
-        
+
         /* Metric card styling */
         .metric-card {
             background: white;
@@ -384,12 +384,12 @@ def apply_global_styles():
             border-left: 4px solid #ff6b6b;
             margin-bottom: 1rem;
         }
-        
+
         /* Status indicators */
         .trend-positive { color: #28a745; font-weight: bold; }
         .trend-negative { color: #dc3545; font-weight: bold; }
         .trend-neutral { color: #6c757d; font-weight: bold; }
-        
+
         /* Chart containers */
         .chart-container {
             background: white;
@@ -398,17 +398,17 @@ def apply_global_styles():
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
             margin: 1rem 0;
         }
-        
+
         /* Sidebar styling */
         .sidebar .sidebar-content {
             background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
         }
-        
+
         /* Table styling */
         .dataframe {
             font-size: 0.9rem;
         }
-        
+
         /* Search box styling */
         .stTextInput > div > div > input {
             border-radius: 20px;

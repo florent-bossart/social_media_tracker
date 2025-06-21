@@ -12,21 +12,21 @@ from data_manager import DataManager
 
 def artist_analytics_hub_page():
     """Unified artist analytics page with multiple analysis views"""
-    
+
     # Page header
     StandardComponents.page_header(
         title="Artist Analytics Hub",
         icon="🎤",
         description="""
         **Comprehensive Artist Intelligence Center** - Your one-stop destination for deep artist insights.
-        
+
         **What you'll find here:**
         - **🔥 Trending Artists**: Real-time popularity and mention tracking
-        - **💭 Sentiment Analysis**: Public perception and emotional response analysis  
+        - **💭 Sentiment Analysis**: Public perception and emotional response analysis
         - **🔗 Content Discovery**: Source tracking and content context analysis
         - **👥 Author Influence**: Key opinion leaders and community influencers
         - **📊 Cross-Platform Metrics**: Unified view across Reddit and YouTube
-        
+
         **How to use:**
         - Use the tabs below to switch between different analysis views
         - Select specific artists to compare and analyze
@@ -46,13 +46,13 @@ def artist_analytics_hub_page():
         "👥 Author Influence": lambda: author_influence_tab(artist_data['author_influence']),
         "📊 Artist Comparison": lambda: artist_comparison_tab(artist_data)
     }
-    
+
     PageLayouts.tabbed_content(tab_config)
 
 def trending_artists_tab(trends_df: pd.DataFrame):
     """Trending artists analysis tab"""
     st.subheader("🔥 Artist Trend Analysis")
-    
+
     if trends_df.empty:
         StandardComponents.empty_state(
             "No Trending Data Available",
@@ -66,7 +66,7 @@ def trending_artists_tab(trends_df: pd.DataFrame):
         total_artists = len(trends_df)
         avg_sentiment = trends_df['sentiment_score'].mean() if 'sentiment_score' in trends_df.columns else 0
         top_mentions = trends_df['mention_count'].max() if 'mention_count' in trends_df.columns else 0
-        
+
         metrics = {
             "Total Artists": f"{total_artists:,}",
             "Avg Sentiment": f"{avg_sentiment:.1f}/10",
@@ -77,7 +77,7 @@ def trending_artists_tab(trends_df: pd.DataFrame):
 
     # Artist selection for detailed analysis
     st.subheader("📊 Top 20 Trending Artists by Mentions")
-    
+
     # Main trending chart - full width for better visibility
     if 'artist_name' in trends_df.columns and 'mention_count' in trends_df.columns:
         fig = StandardCharts.create_bar_chart(
@@ -94,7 +94,7 @@ def trending_artists_tab(trends_df: pd.DataFrame):
     st.subheader("📋 Detailed Artist Data")
     display_columns = ['artist_name', 'mention_count', 'sentiment_score', 'trend_strength', 'avg_comment_length']
     available_columns = [col for col in display_columns if col in trends_df.columns]
-    
+
     StandardComponents.data_table(
         trends_df,
         title="Artist Trends Data",
@@ -106,7 +106,7 @@ def trending_artists_tab(trends_df: pd.DataFrame):
 def sentiment_analysis_tab(sentiment_df: pd.DataFrame):
     """Sentiment analysis tab"""
     st.subheader("💭 Artist Sentiment Analysis")
-    
+
     if sentiment_df.empty:
         StandardComponents.empty_state(
             "No Sentiment Data Available",
@@ -120,7 +120,7 @@ def sentiment_analysis_tab(sentiment_df: pd.DataFrame):
         avg_sentiment = sentiment_df['sentiment_score'].mean()
         positive_count = len(sentiment_df[sentiment_df['sentiment_score'] > 6.5])
         negative_count = len(sentiment_df[sentiment_df['sentiment_score'] < 4.5])
-        
+
         metrics = {
             "Average Sentiment": f"{avg_sentiment:.1f}/10",
             "Positive Artists": f"{positive_count}",
@@ -131,7 +131,7 @@ def sentiment_analysis_tab(sentiment_df: pd.DataFrame):
 
     # Sentiment distribution chart
     col1, col2 = st.columns(2)
-    
+
     with col1:
         if 'sentiment_score' in sentiment_df.columns:
             # Sentiment histogram
@@ -144,7 +144,7 @@ def sentiment_analysis_tab(sentiment_df: pd.DataFrame):
                 labels={'sentiment_score': 'Sentiment Score (1-10)', 'count': 'Number of Artists'}
             )
             st.plotly_chart(fig, use_container_width=True)
-    
+
     with col2:
         # Top positive/negative artists
         if 'sentiment_score' in sentiment_df.columns and 'artist_name' in sentiment_df.columns:
@@ -152,8 +152,8 @@ def sentiment_analysis_tab(sentiment_df: pd.DataFrame):
             st.subheader("😊 Most Positive")
             for _, artist in top_positive.iterrows():
                 st.write(f"• {artist['artist_name']}: {artist['sentiment_score']:.1f}")
-                
-            st.subheader("😔 Most Negative") 
+
+            st.subheader("😔 Most Negative")
             bottom_negative = sentiment_df.nsmallest(5, 'sentiment_score')
             for _, artist in bottom_negative.iterrows():
                 st.write(f"• {artist['artist_name']}: {artist['sentiment_score']:.1f}")
@@ -173,7 +173,7 @@ def sentiment_analysis_tab(sentiment_df: pd.DataFrame):
 def content_discovery_tab(enriched_df: pd.DataFrame, url_df: pd.DataFrame):
     """Content discovery and source analysis tab"""
     st.subheader("🔗 Content Discovery & Source Analysis")
-    
+
     if enriched_df.empty and url_df.empty:
         StandardComponents.empty_state(
             "No Content Data Available",
@@ -184,17 +184,17 @@ def content_discovery_tab(enriched_df: pd.DataFrame, url_df: pd.DataFrame):
 
     # Content metrics
     col1, col2 = st.columns(2)
-    
+
     with col1:
         st.subheader("📊 Enriched Artist Data")
         if not enriched_df.empty:
             # Show key metrics from enriched data
             total_contexts = len(enriched_df)
             unique_artists = enriched_df['artist_name'].nunique() if 'artist_name' in enriched_df.columns else 0
-            
+
             st.metric("Total Contexts", f"{total_contexts:,}")
             st.metric("Unique Artists", unique_artists)
-            
+
             # Top artists by mentions
             if 'artist_name' in enriched_df.columns and 'total_mentions' in enriched_df.columns:
                 top_enriched = enriched_df.groupby('artist_name')['total_mentions'].sum().sort_values(ascending=False).head(10)
@@ -209,17 +209,17 @@ def content_discovery_tab(enriched_df: pd.DataFrame, url_df: pd.DataFrame):
                     st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("Enriched artist data not available yet")
-    
+
     with col2:
         st.subheader("🌐 URL Analysis")
         if not url_df.empty:
             # URL analysis metrics
             total_urls = len(url_df)
             avg_mentions = url_df['mention_count'].mean() if 'mention_count' in url_df.columns else 0
-            
+
             st.metric("Total URLs", f"{total_urls:,}")
             st.metric("Avg Mentions per URL", f"{avg_mentions:.1f}")
-            
+
             # Top URLs by mentions
             if 'url' in url_df.columns and 'mention_count' in url_df.columns:
                 StandardComponents.data_table(
@@ -236,7 +236,7 @@ def content_discovery_tab(enriched_df: pd.DataFrame, url_df: pd.DataFrame):
         st.subheader("📋 Detailed Content Data")
         display_columns = ['artist_name', 'source_platform', 'total_mentions', 'video_title', 'channel_title_clean']
         available_columns = [col for col in display_columns if col in enriched_df.columns]
-        
+
         StandardComponents.data_table(
             enriched_df,
             title="Enriched Content Context",
@@ -248,7 +248,7 @@ def content_discovery_tab(enriched_df: pd.DataFrame, url_df: pd.DataFrame):
 def author_influence_tab(influence_df: pd.DataFrame):
     """Author influence analysis tab"""
     st.subheader("👥 Author Influence Analysis")
-    
+
     if influence_df.empty:
         StandardComponents.empty_state(
             "No Influence Data Available",
@@ -262,7 +262,7 @@ def author_influence_tab(influence_df: pd.DataFrame):
         total_authors = len(influence_df)
         avg_mentions = influence_df['total_mentions'].mean() if 'total_mentions' in influence_df.columns else 0
         top_influence = influence_df['total_mentions'].max() if 'total_mentions' in influence_df.columns else 0
-        
+
         metrics = {
             "Total Authors": f"{total_authors:,}",
             "Avg Mentions": f"{avg_mentions:.1f}",
@@ -286,7 +286,7 @@ def author_influence_tab(influence_df: pd.DataFrame):
     # Detailed influence table
     display_columns = ['author_name', 'total_mentions', 'unique_artists', 'platforms', 'avg_sentiment']
     available_columns = [col for col in display_columns if col in influence_df.columns]
-    
+
     StandardComponents.data_table(
         influence_df,
         title="Author Influence Rankings",
@@ -298,10 +298,10 @@ def author_influence_tab(influence_df: pd.DataFrame):
 def artist_comparison_tab(all_data: dict):
     """Artist comparison and cross-analysis tab"""
     st.subheader("📊 Artist Comparison Tool")
-    
+
     # Get available artists from trends data
     trends_df = all_data.get('trends', pd.DataFrame())
-    
+
     if trends_df.empty or 'artist_name' not in trends_df.columns:
         StandardComponents.empty_state(
             "No Artists Available for Comparison",
@@ -325,14 +325,14 @@ def artist_comparison_tab(all_data: dict):
 
     # Filter data for selected artists
     comparison_data = trends_df[trends_df['artist_name'].isin(selected_artists)]
-    
+
     if comparison_data.empty:
         st.warning("No data found for selected artists")
         return
 
     # Comparison charts
     col1, col2 = st.columns(2)
-    
+
     with col1:
         # Mentions comparison
         if 'mention_count' in comparison_data.columns:
@@ -345,13 +345,13 @@ def artist_comparison_tab(all_data: dict):
             )
             if fig:
                 st.plotly_chart(fig, use_container_width=True)
-    
+
     with col2:
         # Sentiment comparison
         if 'sentiment_score' in comparison_data.columns:
             fig = StandardCharts.create_bar_chart(
                 comparison_data,
-                x_col='artist_name', 
+                x_col='artist_name',
                 y_col='sentiment_score',
                 title="Sentiment Comparison",
                 horizontal=False
@@ -362,7 +362,7 @@ def artist_comparison_tab(all_data: dict):
     # Comparison table
     display_columns = ['artist_name', 'mention_count', 'sentiment_score', 'trend_strength', 'platform_count']
     available_columns = [col for col in display_columns if col in comparison_data.columns]
-    
+
     StandardComponents.data_table(
         comparison_data,
         title="Selected Artists Comparison",

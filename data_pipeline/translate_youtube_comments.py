@@ -88,6 +88,12 @@ def process_file(input_path, column_to_translate, output_column, output_dir, tok
         print("No Japanese text found to translate")
         df[output_column] = ""
 
+    # Standardize column names for entity extraction compatibility
+    # Rename text_clean -> comment_text if needed
+    if 'text_clean' in df.columns and 'comment_text' not in df.columns:
+        df = df.rename(columns={'text_clean': 'comment_text'})
+        print("Renamed 'text_clean' to 'comment_text' for compatibility")
+
     # Ensure output directory exists
     os.makedirs(output_dir, exist_ok=True)
     # Create output filename (_nllb_translated.csv)
@@ -95,6 +101,7 @@ def process_file(input_path, column_to_translate, output_column, output_dir, tok
     output_path = os.path.join(output_dir, filename)
     df.to_csv(output_path, index=False, quoting=1, quotechar='"')  # Maintain proper CSV quoting
     print(f"✅ NLLB translated file saved to: {output_path}")
+    print(f"Final columns: {list(df.columns)}")
     return output_path
 
 def main():
@@ -121,8 +128,8 @@ def main():
     parser.add_argument(
         '--column',
         type=str,
-        default='comment_clean',
-        help='Column name containing text to translate (default: comment_clean)'
+        default='comment_text',
+        help='Column name containing text to translate (default: comment_text)'
     )
     parser.add_argument(
         '--output-column',

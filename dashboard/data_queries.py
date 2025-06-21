@@ -214,7 +214,7 @@ def get_artist_trends_enriched():
         st.warning(f"Enriched artist trends not available yet: {e}")
         return pd.DataFrame()
 
-@st.cache_data  
+@st.cache_data
 def get_url_analysis_data():
     """Fetch URL analysis data showing which URLs are associated with artist mentions"""
     query = """

@@ -179,7 +179,7 @@ def create_artist_bar_chart(df, title="Artist Mentions", num_artists=20):
 
     # Get top artists and ensure all names are visible
     top_artists = df.head(num_artists).copy()
-    
+
     fig = px.bar(top_artists,
                  x='artist_name',
                  y='mention_count',
@@ -187,7 +187,7 @@ def create_artist_bar_chart(df, title="Artist Mentions", num_artists=20):
                  title=title,
                  color_continuous_scale='RdYlGn',
                  hover_data=['sentiment_score', 'mention_count'])
-    
+
     # Improve layout for better readability
     fig.update_layout(
         height=600,  # Increased height for better visibility
@@ -196,20 +196,20 @@ def create_artist_bar_chart(df, title="Artist Mentions", num_artists=20):
         showlegend=False,
         margin=dict(l=50, r=50, t=50, b=120)  # More bottom margin for labels
     )
-    
+
     # Rotate labels and ensure all are shown
     fig.update_xaxes(
         tickangle=45,
         tickmode='linear',  # Show all ticks
         title_standoff=25
     )
-    
+
     # Add value labels on bars for clarity
     fig.update_traces(
         texttemplate='%{y}',
         textposition='outside'
     )
-    
+
     return fig
 
 def create_sentiment_distribution_chart(df):

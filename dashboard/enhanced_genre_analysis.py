@@ -11,14 +11,14 @@ from visualizations import create_genre_radar_chart, create_genre_artist_diversi
 
 def enhanced_genre_analysis_page():
     """Enhanced genre analysis page with genre selection and artist discovery"""
-    
+
     # Page header
     StandardComponents.page_header(
         title="Genre Analysis & Artist Discovery",
         icon="🎶",
         description="""
         **Comprehensive Genre Intelligence** - Explore Japanese music genres and discover associated artists.
-        
+
         **What you can do:**
         - **Browse Genres**: View trending genres and their performance metrics
         - **Select a Genre**: Click on any genre to see all associated artists
@@ -47,16 +47,16 @@ def enhanced_genre_analysis_page():
 
     # Genre Performance Overview
     st.subheader("🎵 Genre Performance Overview")
-    
+
     # Create two columns for genre overview
     col1, col2 = st.columns([2, 1])
-    
+
     with col1:
         # Genre radar chart
         fig = create_genre_radar_chart(genre_data)
         if fig:
             st.plotly_chart(fig, use_container_width=True)
-    
+
     with col2:
         # Display top genres with key metrics
         st.subheader("🔥 Top Genres")
@@ -71,7 +71,7 @@ def enhanced_genre_analysis_page():
                 with col_c:
                     st.caption(f"Trend: {genre['trend_strength']:.2f}")
                 st.markdown("<br>", unsafe_allow_html=True)
-    
+
     # Genre sentiment analysis
     st.subheader("📊 Genre Sentiment Analysis")
     fig = px.bar(genre_data,
@@ -84,11 +84,11 @@ def enhanced_genre_analysis_page():
     fig.update_layout(height=400)
     fig.update_xaxes(tickangle=45)
     st.plotly_chart(fig, use_container_width=True)
-    
+
     # Genre Selection Section - moved below sentiment analysis
     st.markdown("---")
     st.subheader("🎯 Genre Selection & Artist Discovery")
-    
+
     # Genre selector
     if not genre_data.empty:
         # Create a genre list with metrics
@@ -103,15 +103,15 @@ def enhanced_genre_analysis_page():
     if selected_genre and selected_genre != "Select a genre...":
         st.markdown("---")
         st.subheader(f"🎤 Artists in {selected_genre}")
-        
+
         # Load artists for the selected genre
         with st.spinner(f"Loading artists for {selected_genre}..."):
             genre_artists = DataManager.get_genre_artists(selected_genre)
-        
+
         if not genre_artists.empty:
             # Create tabs for different views
             tab1, tab2, tab3 = st.tabs(["📊 Artist Overview", "📈 Detailed Analysis", "💾 Export Data"])
-            
+
             with tab1:
                 # Artist metrics overview
                 col1, col2, col3 = st.columns(3)
@@ -123,11 +123,11 @@ def enhanced_genre_analysis_page():
                 with col3:
                     total_mentions = genre_artists['mention_count'].sum()
                     st.metric("Total Mentions", f"{total_mentions:,}")
-                
+
                 # Top artists in the genre
                 st.subheader(f"🏆 Top 20 Artists in {selected_genre}")
                 top_artists = genre_artists.head(20)
-                
+
                 # Create a bar chart of top artists
                 fig = px.bar(
                     top_artists,
@@ -141,21 +141,21 @@ def enhanced_genre_analysis_page():
                 )
                 fig.update_layout(height=600, yaxis={'categoryorder': 'total ascending'})
                 st.plotly_chart(fig, use_container_width=True)
-            
+
             with tab2:
                 # Detailed artist analysis
                 st.subheader("🔍 Detailed Artist Analysis")
-                
+
                 # Artist selection for detailed view
                 artist_options = ["Select an artist..."] + genre_artists['artist_name'].tolist()
                 selected_artist = st.selectbox(
                     "Choose an artist for detailed analysis:",
                     artist_options
                 )
-                
+
                 if selected_artist and selected_artist != "Select an artist...":
                     artist_data = genre_artists[genre_artists['artist_name'] == selected_artist].iloc[0]
-                    
+
                     col1, col2 = st.columns(2)
                     with col1:
                         st.metric("Mentions in Genre", int(artist_data['mention_count']))
@@ -163,37 +163,37 @@ def enhanced_genre_analysis_page():
                     with col2:
                         st.metric("Platform Count", int(artist_data['platform_count']))
                         st.metric("Genre Rank", f"#{int(artist_data['artist_rank'])}")
-                
+
                 # Show all artists table with search
                 st.subheader("📋 All Artists in Genre")
                 search_term = st.text_input("Search artists:", placeholder="Type artist name...")
-                
+
                 if search_term:
                     filtered_artists = genre_artists[
                         genre_artists['artist_name'].str.contains(search_term, case=False, na=False)
                     ]
                 else:
                     filtered_artists = genre_artists
-                
+
                 # Display the dataframe
                 st.dataframe(
                     filtered_artists[['artist_name', 'mention_count', 'sentiment_score', 'platform_count', 'artist_rank']],
                     use_container_width=True,
                     hide_index=True
                 )
-            
+
             with tab3:
                 # Export functionality
                 st.subheader("💾 Export Artist Data")
                 st.write(f"Export complete artist list for **{selected_genre}** genre")
-                
+
                 # Show export options
                 export_format = st.radio(
                     "Choose export format:",
                     ["CSV", "JSON"],
                     horizontal=True
                 )
-                
+
                 if export_format == "CSV":
                     csv_data = genre_artists.to_csv(index=False)
                     st.download_button(
@@ -210,19 +210,19 @@ def enhanced_genre_analysis_page():
                         file_name=f"{selected_genre.lower().replace(' ', '_')}_artists.json",
                         mime="application/json"
                     )
-                
+
                 # Preview the data to be exported
                 st.subheader("📋 Export Preview")
                 st.write(f"This will export **{len(genre_artists)}** artists with the following data:")
                 st.dataframe(genre_artists.head(10), use_container_width=True)
-        
+
         else:
             st.info(f"No artists found for {selected_genre} genre.")
-    
+
     # Additional analysis sections
     st.markdown("---")
     st.subheader("🎨 Overall Artist Diversity by Genre")
-    
+
     if not genre_artist_diversity_data.empty:
         # Get genre diversity summary
         genre_summary = genre_artist_diversity_data.groupby('genre_name').agg({
@@ -232,7 +232,7 @@ def enhanced_genre_analysis_page():
         }).reset_index()
         genre_summary.columns = ['genre', 'artist_count', 'total_mentions', 'avg_sentiment']
         genre_summary = genre_summary.sort_values('artist_count', ascending=False).head(15)
-        
+
         # Create diversity chart
         fig = px.bar(
             genre_summary,
@@ -246,13 +246,13 @@ def enhanced_genre_analysis_page():
         )
         fig.update_layout(height=500, yaxis={'categoryorder': 'total ascending'})
         st.plotly_chart(fig, use_container_width=True)
-        
+
         # Summary metrics
         col1, col2, col3 = st.columns(3)
         with col1:
             max_diversity_genre = genre_summary.iloc[0]
             st.metric(
-                "Most Diverse Genre", 
+                "Most Diverse Genre",
                 max_diversity_genre['genre'],
                 f"{int(max_diversity_genre['artist_count'])} artists"
             )
@@ -262,6 +262,6 @@ def enhanced_genre_analysis_page():
         with col3:
             if artists_without_genre_count:
                 st.metric("Artists Without Genre", f"{artists_without_genre_count}")
-    
+
     else:
         st.info("No artist diversity data available for detailed analysis.")

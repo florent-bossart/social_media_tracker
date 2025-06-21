@@ -17,13 +17,14 @@ WITH deduplicated_data AS (
 ),
 genre_text_pairs AS (
     SELECT DISTINCT
-        LOWER(jsonb_array_elements_text(dd.entities_genres)) as genre_lower,
+        LOWER(TRIM(genre_element.value)) as genre_lower,
         dd.original_text,
         dd.source_platform,
         dd.confidence_score,
         dd.sentiment_strength,
         dd.extraction_date
     FROM deduplicated_data dd
+    CROSS JOIN LATERAL jsonb_array_elements_text(dd.entities_genres) AS genre_element(value)
     WHERE dd.entities_genres IS NOT NULL
         AND jsonb_array_length(dd.entities_genres) > 0
 ),
@@ -40,7 +41,7 @@ genre_stats AS (
 normalized_genres AS (
     SELECT
         -- Normalize common genre variations with proper casing
-        CASE 
+        CASE
             WHEN genre_lower IN ('pop', 'j-pop', 'jpop', 'j pop') THEN 'J-Pop'
             WHEN genre_lower IN ('rock', 'j-rock', 'jrock', 'j rock') THEN 'J-Rock'
             WHEN genre_lower IN ('metal', 'j-metal', 'jmetal') THEN 'Metal'

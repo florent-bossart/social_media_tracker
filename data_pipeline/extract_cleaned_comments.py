@@ -46,7 +46,7 @@ if __name__ == "__main__":
     # Extract cleaned YouTube comments
     youtube_sql = """
     SELECT
-        comment_pk, video_id, comment_id, text_clean, author_clean, published_at, keyword_clean, fetch_date
+        comment_pk, video_id, comment_id, text_clean AS comment_text, author_clean, published_at, keyword_clean, fetch_date
     FROM intermediate.cleaned_youtube_comments
     """
     extract_to_csv(youtube_sql, "youtube_comments_cleaned.csv")

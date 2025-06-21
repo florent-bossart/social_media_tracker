@@ -2,11 +2,11 @@
 
 WITH author_mentions AS (
     -- YouTube author mentions
-    SELECT 
+    SELECT
         cyc.author_clean as author_name,
         'youtube' as platform,
-        jsonb_array_elements_text(ee.entities_artists) as artist_name,
-        jsonb_array_elements_text(ee.entities_genres) as genre_name,
+        TRIM(artist_element.value) as artist_name,
+        TRIM(genre_element.value) as genre_name,
         ee.confidence_score,
         ee.extraction_date,
         cyc.published_at as mention_date,
@@ -15,23 +15,26 @@ WITH author_mentions AS (
         cyv.view_count,
         cyv.title_clean as video_title
     FROM {{ source('analytics', 'entity_extraction') }} ee
-    INNER JOIN {{ source('intermediate', 'cleaned_youtube_comments') }} cyc 
+    INNER JOIN {{ source('intermediate', 'cleaned_youtube_comments') }} cyc
         ON ee.original_text = cyc.text_clean
     LEFT JOIN {{ source('intermediate', 'cleaned_youtube_videos') }} cyv
         ON cyc.video_id = cyv.video_id
+    CROSS JOIN LATERAL jsonb_array_elements_text(ee.entities_artists) AS artist_element(value)
+    CROSS JOIN LATERAL jsonb_array_elements_text(ee.entities_genres) AS genre_element(value)
     WHERE ee.source_platform = 'youtube'
         AND ee.entities_artists IS NOT NULL
         AND cyc.author_clean IS NOT NULL
         AND TRIM(cyc.author_clean) != ''
-    
+        AND {{ filter_valid_artists('TRIM(artist_element.value)') }}
+
     UNION ALL
-    
+
     -- Reddit author mentions
-    SELECT 
+    SELECT
         crc.author_clean as author_name,
         'reddit' as platform,
-        jsonb_array_elements_text(ee.entities_artists) as artist_name,
-        jsonb_array_elements_text(ee.entities_genres) as genre_name,
+        TRIM(artist_element.value) as artist_name,
+        TRIM(genre_element.value) as genre_name,
         ee.confidence_score,
         ee.extraction_date,
         crc.created_utc_fmt::timestamp as mention_date,
@@ -40,17 +43,20 @@ WITH author_mentions AS (
         NULL::integer as view_count,
         crp.title_clean as video_title          -- Use post title
     FROM {{ source('analytics', 'entity_extraction') }} ee
-    INNER JOIN {{ source('intermediate', 'cleaned_reddit_comments') }} crc 
+    INNER JOIN {{ source('intermediate', 'cleaned_reddit_comments') }} crc
         ON ee.original_text = crc.body_clean
     LEFT JOIN {{ source('intermediate', 'cleaned_reddit_posts') }} crp
         ON crc.post_id = crp.post_id
+    CROSS JOIN LATERAL jsonb_array_elements_text(ee.entities_artists) AS artist_element(value)
+    CROSS JOIN LATERAL jsonb_array_elements_text(ee.entities_genres) AS genre_element(value)
     WHERE ee.source_platform = 'reddit'
         AND ee.entities_artists IS NOT NULL
         AND crc.author_clean IS NOT NULL
         AND TRIM(crc.author_clean) != ''
+        AND {{ filter_valid_artists('TRIM(artist_element.value)') }}
 ),
 author_stats AS (
-    SELECT 
+    SELECT
         author_name,
         platform,
         COUNT(DISTINCT CONCAT(platform, '-', video_id, '-', artist_name, '-', mention_date::text)) as total_mentions,
@@ -64,11 +70,11 @@ author_stats AS (
         -- Platform specific metrics
         AVG(CASE WHEN platform = 'youtube' THEN view_count END) as avg_video_views,
         -- Most mentioned artists and genres (without LIMIT in array_agg)
-        array_agg(DISTINCT artist_name ORDER BY artist_name) 
+        array_agg(DISTINCT artist_name ORDER BY artist_name)
             FILTER (WHERE artist_name IS NOT NULL) as artists_mentioned,
-        array_agg(DISTINCT genre_name ORDER BY genre_name) 
+        array_agg(DISTINCT genre_name ORDER BY genre_name)
             FILTER (WHERE genre_name IS NOT NULL) as genres_mentioned,
-        array_agg(DISTINCT channel_title_clean ORDER BY channel_title_clean) 
+        array_agg(DISTINCT channel_title_clean ORDER BY channel_title_clean)
             FILTER (WHERE channel_title_clean IS NOT NULL) as channels_subreddits
     FROM author_mentions
     WHERE artist_name IS NOT NULL
@@ -77,7 +83,7 @@ author_stats AS (
     GROUP BY author_name, platform
 ),
 author_influence_score AS (
-    SELECT 
+    SELECT
         *,
         -- Calculate influence score based on multiple factors
         (
@@ -93,7 +99,7 @@ author_influence_score AS (
         ) as mentions_per_day
     FROM author_stats
 )
-SELECT 
+SELECT
     author_name,
     platform,
     total_mentions,
@@ -112,14 +118,14 @@ SELECT
     genres_mentioned,
     channels_subreddits,
     -- Categorize authors
-    CASE 
+    CASE
         WHEN influence_score >= 50 THEN 'High Influence'
         WHEN influence_score >= 20 THEN 'Medium Influence'
         WHEN influence_score >= 10 THEN 'Regular Contributor'
         ELSE 'Casual Mention'
     END as influence_category,
     -- Activity pattern
-    CASE 
+    CASE
         WHEN mentions_per_day >= 1 THEN 'Daily Active'
         WHEN mentions_per_day >= 0.5 THEN 'Frequent'
         WHEN mentions_per_day >= 0.1 THEN 'Regular'

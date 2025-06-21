@@ -65,7 +65,7 @@ def load_consolidated_data():
     except Exception as e:
         st.error(f"Error loading dashboard data: {str(e)}")
         StandardComponents.error_display(
-            f"Data loading failed: {str(e)}", 
+            f"Data loading failed: {str(e)}",
             error_type="error"
         )
         # Return empty data structure to prevent crashes

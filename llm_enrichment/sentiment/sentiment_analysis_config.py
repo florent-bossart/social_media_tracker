@@ -8,7 +8,7 @@ from social media platforms like YouTube and Reddit.
 # Ollama Configuration
 OLLAMA_MODEL = "llama3:latest"  # Updated to match available model
 OLLAMA_BASE_URL = "https://89ee-2400-4050-3243-1400-985a-ca78-1567-5b73.ngrok-free.app" # Changed to new ngrok URL for the second laptop
-OLLAMA_TIMEOUT = 120  # seconds - increased for slower processing
+OLLAMA_TIMEOUT = 300  # seconds - increased significantly for bulk processing (5 minutes)
 
 # Sentiment Analysis Configuration
 SENTIMENT_ANALYSIS_CONFIG = {
@@ -137,18 +137,54 @@ Respond ONLY with valid JSON:
     "comparison_sentiment": "strong_preference|mild_preference|balanced|conflicted",
     "sentiment_reasoning": "Brief explanation"
 }}
+""",
+
+    "bulk_prompt": """
+You are a sentiment analysis expert specializing in Japanese music discussions on social media.
+
+Analyze the sentiment of these comments about Japanese music. Process each comment and respond with a JSON array containing one object per comment in the same order.
+
+Comments to analyze:
+{comments}
+
+For each comment, consider:
+1. Overall sentiment (positive, negative, neutral)
+2. Sentiment strength (1-10 scale)
+3. Specific aspects mentioned (artist, song, performance, etc.)
+4. Cultural context and slang
+5. Emotional intensity
+
+Respond ONLY with valid JSON array in this exact format:
+[
+    {{
+        "comment_id": "comment_1",
+        "overall_sentiment": "positive|negative|neutral",
+        "sentiment_strength": 7,
+        "confidence": 0.85,
+        "sentiment_aspects": {{
+            "artist_sentiment": "positive|negative|neutral|none",
+            "music_quality_sentiment": "positive|negative|neutral|none",
+            "performance_sentiment": "positive|negative|neutral|none",
+            "personal_experience_sentiment": "positive|negative|neutral|none"
+        }},
+        "emotional_indicators": ["love", "excitement", "nostalgia"],
+        "sentiment_reasoning": "Brief explanation of sentiment analysis"
+    }}
+]
 """
 }
 
 # Processing Configuration
 PROCESSING_CONFIG = {
-    "batch_size": 10,
+    "batch_size": 50,  # Increased for bulk processing - process 50 comments at once
     "max_retries": 3,
     "retry_delay": 2,  # seconds
     "sentiment_threshold": 0.6,  # minimum confidence for including sentiment
     "enable_comparative_analysis": True,
     "enable_aspect_sentiment": True,
-    "enable_cultural_context": True
+    "enable_cultural_context": True,
+    "bulk_processing": True,  # Enable bulk processing
+    "bulk_size": 3  # Process 3 comments at a time in bulk for better reliability
 }
 
 # Output Configuration
@@ -161,5 +197,11 @@ OUTPUT_CONFIG = {
 }
 
 # File paths
-SENTIMENT_OUTPUT_DIR = "/home/florent.bossart/code/florent-bossart/social_media_tracker/data/intermediate/sentiment_analysis"
-SENTIMENT_LOG_FILE = "/home/florent.bossart/code/florent-bossart/social_media_tracker/logs/sentiment_analysis.log"
+import os
+
+# Get the project root directory (assuming this file is in llm_enrichment/sentiment/)
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Output directories and files
+SENTIMENT_OUTPUT_DIR = os.path.join(PROJECT_ROOT, "data", "intermediate", "sentiment_analysis")
+SENTIMENT_LOG_FILE = os.path.join(PROJECT_ROOT, "logs", "sentiment_analysis.log")

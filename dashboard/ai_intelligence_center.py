@@ -15,7 +15,7 @@ from data_manager import DataManager
 
 def ai_intelligence_center_page():
     """Unified AI intelligence page with trend summaries and insights"""
-    
+
     # Page header
     StandardComponents.page_header(
         title="AI Intelligence Center",
@@ -35,13 +35,13 @@ def ai_intelligence_center_page():
         "🎯 Smart Search": lambda: smart_search_tab(insights_data),
         "📊 Intelligence Dashboard": lambda: intelligence_dashboard_tab(trend_data, insights_data)
     }
-    
+
     PageLayouts.tabbed_content(tab_config)
 
 def trend_summary_tab(trend_data: dict):
     """AI-generated trend summary analysis tab"""
     st.subheader("📈 AI-Generated Trend Analysis")
-    
+
     if not trend_data or all(df.empty for df in trend_data.values() if isinstance(df, pd.DataFrame)):
         StandardComponents.empty_state(
             "No AI Trend Data Available",
@@ -59,7 +59,7 @@ def trend_summary_tab(trend_data: dict):
 def ai_insights_tab(insights_data: dict):
     """AI insights analysis tab"""
     st.subheader("🔍 AI-Generated Music Insights")
-    
+
     if not insights_data or all(df.empty for df in insights_data.values() if isinstance(df, pd.DataFrame)):
         StandardComponents.empty_state(
             "No AI Insights Available",
@@ -77,7 +77,7 @@ def ai_insights_tab(insights_data: dict):
 def smart_search_tab(insights_data: dict):
     """Smart search and discovery interface"""
     st.subheader("🎯 Smart Insight Search")
-    
+
     artist_insights_df = insights_data.get('artist_insights', pd.DataFrame())
     if artist_insights_df.empty:
         StandardComponents.empty_state(
@@ -96,7 +96,7 @@ def smart_search_tab(insights_data: dict):
             search_results = perform_smart_search(artist_insights_df, search_query)
             if not search_results.empty:
                 st.success(f"Found {len(search_results)} results for '{search_query}'")
-                
+
                 # Display results
                 for i, (_, result) in enumerate(search_results.iterrows()):
                     with st.expander(f"Result {i+1}: {result.get('artist_name', 'Unknown Artist')}", expanded=i < 3):
@@ -113,14 +113,14 @@ def smart_search_tab(insights_data: dict):
 def intelligence_dashboard_tab(trend_data: dict, insights_data: dict):
     """Intelligence dashboard overview"""
     st.subheader("📊 AI Intelligence Dashboard")
-    
+
     col1, col2 = st.columns(2)
-    
+
     with col1:
         st.subheader("📈 Trend Intelligence")
         artists_df = trend_data.get('artists', pd.DataFrame())
         genres_df = trend_data.get('genres', pd.DataFrame())
-        
+
         if not artists_df.empty or not genres_df.empty:
             trend_metrics = {
                 "Trending Artists": len(artists_df),
@@ -128,11 +128,11 @@ def intelligence_dashboard_tab(trend_data: dict, insights_data: dict):
                 "AI Insights": "Live"
             }
             StandardComponents.metric_cards(trend_metrics, columns=3)
-    
+
     with col2:
         st.subheader("🔍 Insight Intelligence")
         artist_insights_df = insights_data.get('artist_insights', pd.DataFrame())
-        
+
         if not artist_insights_df.empty:
             insight_metrics = {
                 "Total Insights": len(artist_insights_df),
@@ -152,14 +152,14 @@ def perform_smart_search(df: pd.DataFrame, query: str) -> pd.DataFrame:
     """Perform intelligent search across insights data"""
     if df.empty or not query.strip():
         return pd.DataFrame()
-    
+
     query = query.lower().strip()
-    
+
     try:
         mask = pd.Series([False] * len(df))
         for col in df.columns:
             mask |= df[col].astype(str).str.lower().str.contains(query, na=False)
-        
+
         return df[mask].head(20)  # Limit results
     except Exception:
         return pd.DataFrame()

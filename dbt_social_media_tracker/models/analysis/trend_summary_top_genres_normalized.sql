@@ -1,12 +1,12 @@
 {{ config(materialized='view') }}
 
 WITH genre_normalization AS (
-    SELECT 
+    SELECT
         id,
         analysis_timestamp,
         genre_name as original_genre_name,
         -- Apply comprehensive genre normalization
-        CASE 
+        CASE
             WHEN LOWER(TRIM(genre_name)) IN ('pop', 'j-pop', 'jpop', 'j pop') THEN 'J-Pop'
             WHEN LOWER(TRIM(genre_name)) IN ('rock', 'j-rock', 'jrock', 'j rock') THEN 'J-Rock'
             WHEN LOWER(TRIM(genre_name)) IN ('metal', 'j-metal', 'jmetal') THEN 'Metal'
@@ -70,12 +70,12 @@ WITH genre_normalization AS (
         platforms_count,
         source_file
     FROM {{ source('analytics', 'trend_summary_top_genres') }}
-    WHERE genre_name IS NOT NULL 
+    WHERE genre_name IS NOT NULL
         AND TRIM(genre_name) != ''
         AND LOWER(TRIM(genre_name)) NOT IN ('nan', 'null', 'none', '')
 ),
 aggregated_genres AS (
-    SELECT 
+    SELECT
         analysis_timestamp,
         normalized_genre_name as genre_name,
         SUM(popularity_score) as popularity_score,
@@ -89,7 +89,7 @@ aggregated_genres AS (
     FROM genre_normalization
     GROUP BY analysis_timestamp, normalized_genre_name
 )
-SELECT 
+SELECT
     analysis_timestamp,
     genre_name,
     popularity_score,

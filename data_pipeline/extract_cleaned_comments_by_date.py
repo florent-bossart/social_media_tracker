@@ -17,10 +17,9 @@ load_dotenv()
 
 PG_USER = os.getenv("WAREHOUSE_USER")
 PG_PW = os.getenv("WAREHOUSE_PASSWORD")
-PG_HOST = 'localhost'   # for local test only
-PG_PORT = "5434"         # for local test only
-# PG_HOST = os.getenv("WAREHOUSE_HOST")
-# PG_PORT = os.getenv("WAREHOUSE_PORT", "5432")
+# Use environment variables for container deployment, fallback to localhost for local dev
+PG_HOST = os.getenv("WAREHOUSE_HOST", 'localhost')
+PG_PORT = os.getenv("WAREHOUSE_PORT", "5434")
 PG_DB = os.getenv("WAREHOUSE_DB")
 
 DATABASE_URL = f"postgresql+psycopg2://{PG_USER}:{PG_PW}@{PG_HOST}:{PG_PORT}/{PG_DB}"
@@ -107,7 +106,7 @@ def extract_youtube_comments(filter_date=None):
     if filter_date:
         youtube_sql = """
         SELECT
-            comment_pk, video_id, comment_id, text_clean, author_clean, published_at, keyword_clean, fetch_date
+            comment_pk, video_id, comment_id, text_clean AS comment_text, author_clean, published_at, keyword_clean, fetch_date
         FROM intermediate.cleaned_youtube_comments
         WHERE fetch_date >= %s
         ORDER BY fetch_date DESC
@@ -119,7 +118,7 @@ def extract_youtube_comments(filter_date=None):
     else:
         youtube_sql = """
         SELECT
-            comment_pk, video_id, comment_id, text_clean, author_clean, published_at, keyword_clean, fetch_date
+            comment_pk, video_id, comment_id, text_clean AS comment_text, author_clean, published_at, keyword_clean, fetch_date
         FROM intermediate.cleaned_youtube_comments
         ORDER BY fetch_date DESC
         """

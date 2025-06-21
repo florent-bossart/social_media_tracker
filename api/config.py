@@ -66,7 +66,7 @@ SEARCH_KEYWORDS = [
     "Japanese MV 2025",    # "Japanese Music Video 2025" - Targets music videos released in 2025
     "急上昇 音楽",          # "Trending music" - Searches for music currently trending on YouTube in Japan
     "音楽 2025 日本",       # "Music 2025 Japan" - Year-specific search
-    
+
     # Genre-Specific Keywords
     "アニソン 新曲",        # "New anime songs" - Targets anime soundtracks, a major part of Japanese music culture
     "Vtuber 音楽",         # "Vtuber music" - Focuses on music by virtual YouTubers, a growing trend
@@ -86,12 +86,12 @@ SEARCH_KEYWORDS = [
     "実験音楽 日本",        # "Japanese experimental music" - Japanese experimental music
     "アコースティック 日本", # "Japanese acoustic" - Acoustic music genre
     "インストゥルメンタル 日本", # "Japanese instrumental" - Instrumental music
-    
+
     # Artist and Band Specific
     "和楽器バンド",          # "Wagakki Band" - Focuses on a specific band that combines traditional Japanese instruments with modern rock
     "日本 バンド 2025",     # "Japanese bands 2025" - Band-focused search
     "新人アーティスト",     # "New artists" - Emerging artists
-    
+
     # Content Types and Formats
     "J-pop cover",         # Cover versions often have high engagement
     "カバー曲 日本",        # "Japanese cover songs" - Cover songs
