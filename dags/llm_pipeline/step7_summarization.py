@@ -23,8 +23,8 @@ def generate_summary(**context):
     # Add project root to Python path
     sys.path.append(PROJECT_BASE_PATH)
 
-    # Import standalone file detection utilities
-    sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+    # Import standalone file detection utilities from data_pipeline
+    sys.path.append(os.path.join(PROJECT_BASE_PATH, 'data_pipeline'))
     from file_detection_utils import find_latest_trend_files
 
     # Helper functions for date and source extraction

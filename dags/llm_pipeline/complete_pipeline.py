@@ -42,8 +42,8 @@ def import_step_functions():
             # Add project root to Python path (same as working DAG)
             sys.path.append("/app")
 
-            # Import file detection utilities (same as working DAG)
-            sys.path.append("/app/airflow/dags/llm_pipeline")
+            # Import file detection utilities from data_pipeline
+            sys.path.append("/app/data_pipeline")
             from file_detection_utils import find_latest_cleaned_file
 
             # Find the latest YouTube cleaned file (same as working DAG)
@@ -114,8 +114,8 @@ def import_step_functions():
             # Add project root to Python path
             sys.path.append("/app")
 
-            # Import file detection utilities
-            sys.path.append("/app/airflow/dags/llm_pipeline")
+            # Import file detection utilities from data_pipeline
+            sys.path.append("/app/data_pipeline")
             from file_detection_utils import find_latest_translated_file, find_latest_entity_file
 
             # Find the latest YouTube translated file
@@ -181,8 +181,8 @@ def import_step_functions():
             # Add project root to Python path
             sys.path.append("/app")
 
-            # Import file detection utilities
-            sys.path.append("/app/airflow/dags/llm_pipeline")
+            # Import file detection utilities from data_pipeline
+            sys.path.append("/app/data_pipeline")
             from file_detection_utils import find_latest_cleaned_file, find_latest_entity_file
 
             # Find the latest Reddit cleaned file
@@ -248,8 +248,8 @@ def import_step_functions():
             # Add project root to Python path
             sys.path.append("/app")
 
-            # Import file detection utilities
-            sys.path.append("/app/airflow/dags/llm_pipeline")
+            # Import file detection utilities from data_pipeline
+            sys.path.append("/app/data_pipeline")
             from file_detection_utils import find_latest_entity_file, find_latest_sentiment_file
 
             # Find the latest YouTube entity file
@@ -315,8 +315,8 @@ def import_step_functions():
             # Add project root to Python path
             sys.path.append("/app")
 
-            # Import file detection utilities
-            sys.path.append("/app/airflow/dags/llm_pipeline")
+            # Import file detection utilities from data_pipeline
+            sys.path.append("/app/data_pipeline")
             from file_detection_utils import find_latest_entity_file, find_latest_sentiment_file
 
             # Find the latest Reddit entity file
@@ -382,8 +382,8 @@ def import_step_functions():
             # Add project root to Python path
             sys.path.append("/app")
 
-            # Import file detection utilities
-            sys.path.append("/app/airflow/dags/llm_pipeline")
+            # Import file detection utilities from data_pipeline
+            sys.path.append("/app/data_pipeline")
             from file_detection_utils import find_latest_sentiment_file
 
             # Find the latest sentiment files for both platforms
@@ -452,8 +452,8 @@ def import_step_functions():
             # Add project root to Python path
             sys.path.append("/app")
 
-            # Import file detection utilities
-            sys.path.append("/app/airflow/dags/llm_pipeline")
+            # Import file detection utilities from data_pipeline
+            sys.path.append("/app/data_pipeline")
             from file_detection_utils import find_latest_trend_files
 
             # Helper functions for date and source extraction
