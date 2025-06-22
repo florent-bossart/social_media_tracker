@@ -17,19 +17,43 @@ Install Ollama https://ollama.com/  Linux : curl -fsSL https://ollama.com/instal
 Install ollama models : ollama pull llama3:7b
 
 Run docker compose build, then docker compose up. Then you will be able to manually trigger each step from Airflow.
-TODO :
-- List DAGS
-- Add LLM calls example/improve for possible DAG calls.
 !!! The LLM part takes a lot of processing, you can use different machines to run the LLM part, you will need to set up a tunnel from your execution environment to the processing machine, and install Ollama on the processing machine !!!
+How to run :
+Daily - Run DAGS:
+- fetch_reddit_daily_data             => Get reddit data usingthe API
+- fetch_youtube_daily_data            => Get youtube data using the API
+- Load_all_social_media_raw_today     => Load youtube and reddit data in the raw schema
+- llm_complete_pipeline_full          => all the LLM part + dbt
+For LLM step by step :
+- dbt_run                             => clean the data and create intermediary tables
+- cleaned_data_extraction             => extract intermediary data for LLM processing
+- llm_step_1_translate_youtube_optimized => translate Japanese youtube comments into English. Optimized version have special memory config
+- llm_step2_entity_youtube            => extract entities from youtube
+- llm_step3_entity_reddit             => extract entities from reddit
+- llm_step4_sentiment_youtube         => extract sentiment from youtube
+- llm_step5_sentiment_reddit          => extract sentiment from reddit
+- llm_step6_trend_combined            => generate trends files
+- llm_step7_summarization             => generate summarization
+- step8_load_analytics_simple         => load llm generated data into the analytics schema
+- dbt_run                             => generate the views for the dashboard
+
+
+Other optional dags :
+- update_youtube_comments_rotating    => query youtube API on already fetched videos, to get comment updates - if you still have not reached youtube quota
+- load_all_youtube_comment_updates    => load these new comments in the raw schema
+
+Some other dags to load/extract files separatly.
+
+
 
 ## PROJECT STATUS :
 
 [NEXT]
-Add logging
-Better error handling
-Unit tests
+Cre
+More logging
+More error handling
+More Unit tests
 More doc
-Improve LLM calls
 
 --
 
