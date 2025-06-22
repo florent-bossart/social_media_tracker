@@ -45,11 +45,51 @@ Other optional dags :
 Some other dags to load/extract files separatly.
 
 
+## Database Backup & Restore
+
+The project includes comprehensive database backup and restore functionality for easy project forking and data sharing.
+
+### Creating a Backup
+
+```bash
+# Create a compressed backup of the entire database
+./scripts/backup_database.sh
+```
+
+This creates a `.tar.gz` file in the `backups/` directory containing:
+- Complete SQL dump of all schemas (raw, staging, analytics)
+- Backup metadata and restore instructions
+- Sample data for Japanese music trend analysis
+
+### Restoring a Backup
+
+```bash
+# Restore the latest backup (auto-detects Docker/local setup)
+./scripts/restore_database.sh
+
+# Restore a specific backup file
+./scripts/restore_database.sh backup_20240622_120000.tar.gz
+
+# Force restore without prompts (useful for automation)
+./scripts/restore_database.sh --force
+
+# Get help with all options
+./scripts/restore_database.sh --help
+```
+
+The restore script automatically:
+- Detects whether you're using Docker or local PostgreSQL
+- Extracts and validates the backup
+- Safely drops and recreates the database
+- Verifies the restore was successful
+
+Perfect for getting started with sample data when forking this project!
+
+
 
 ## PROJECT STATUS :
 
 [NEXT]
-Cre
 More logging
 More error handling
 More Unit tests
