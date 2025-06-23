@@ -21,3 +21,24 @@ backgroundColor = "#FFFFFF"
 secondaryBackgroundColor = "#F0F2F6"
 textColor = "#262730"
 font = "sans serif"
+
+# Streamlit Cloud specific optimizations
+[client]
+# Reduce memory usage for Streamlit Cloud
+caching = true
+showErrorDetails = true
+
+[runner]
+# Optimize for Streamlit Cloud performance
+magicEnabled = false
+installTracer = false
+fixMatplotlib = false
+
+[logger]
+# Reduce logging overhead
+level = "warning"
+
+[deprecation]
+# Disable deprecation warnings to reduce overhead
+showfileUploaderEncoding = false
+showPyplotGlobalUse = false
