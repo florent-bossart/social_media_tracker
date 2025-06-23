@@ -58,8 +58,8 @@ if st.sidebar.button("�️ Clear Cache & Refresh"):
             del st.session_state[key]
     st.rerun()
 
-# Load data using centralized DataManager
-@st.cache_data
+# Load data with improved error handling
+@st.cache_data(ttl=300)  # Cache for 5 minutes
 def load_consolidated_data():
     """Load all required data with improved error handling and consistency"""
     try:
@@ -100,68 +100,64 @@ def load_consolidated_data():
             'video_context_data': pd.DataFrame()
         }
 
-# Load data with progress indicator outside cache
-if 'data_loaded' not in st.session_state:
+# Initialize and load data
+if 'dashboard_data' not in st.session_state:
     with st.spinner("Loading dashboard data..."):
         st.session_state.dashboard_data = load_consolidated_data()
-        st.session_state.data_loaded = True
 
 data = st.session_state.dashboard_data
 
-# Route to appropriate consolidated page
-try:
-    # Force content to display - add immediate content for each page
-    st.markdown(f"# Currently viewing: {page}")
+# Page routing with immediate content display
+def render_page(page_name: str, data: dict):
+    """Render the selected page with error handling and immediate content"""
     
-    if page == "🏠 Overview":
-        overview_page(
-            data['stats'],
-            data['artist_data'],
-            data['temporal_data']
-        )
-
-    elif page == "🎤 Artist Analytics Hub":
-        st.markdown("Loading Artist Analytics Hub...")
-        artist_analytics_hub_page()
-
-    elif page == "🎶 Genre Analysis":
-        st.markdown("Loading Genre Analysis...")
-        enhanced_genre_analysis_page()
-
-    elif page == "☁️ Word Cloud":
-        st.markdown("Loading Word Cloud...")
-        wordcloud_page(data['wordcloud_data'])
-
-    elif page == "📱 Platform Insights":
-        st.markdown("Loading Platform Insights...")
-        platform_insights_page(data['platform_data'], data['video_context_data'])
-
-    elif page == "🤖 AI Intelligence Center":
-        st.markdown("Loading AI Intelligence Center...")
-        ai_intelligence_center_page()
-
-    elif page == "🎲 Get Lucky":
-        st.markdown("Loading Get Lucky...")
-        get_lucky_page()
-
-    else:
-        st.error(f"Unknown page: {page}")
-
-except Exception as e:
-    st.error(f"Error rendering page '{page}': {str(e)}")
-    st.code(traceback.format_exc())
+    # Always show page header first
+    st.markdown(f"## {page_name}")
     
-    # Show a minimal fallback
-    st.subheader(f"⚠️ {page} - Service Temporarily Unavailable")
-    st.info("There was an issue loading this page. Please try refreshing or contact support if the issue persists.")
-    
-    # Show available data for debugging
-    if st.checkbox("Show debug information"):
-        st.json({
-            "page": page,
-            "error": str(e),
-            "data_keys": list(data.keys()) if data else []
-        })
+    try:
+        if page_name == "🏠 Overview":
+            overview_page(
+                data['stats'],
+                data['artist_data'],
+                data['temporal_data']
+            )
+
+        elif page_name == "🎤 Artist Analytics Hub":
+            artist_analytics_hub_page()
+
+        elif page_name == "🎶 Genre Analysis":
+            enhanced_genre_analysis_page()
+
+        elif page_name == "☁️ Word Cloud":
+            wordcloud_page(data['wordcloud_data'])
+
+        elif page_name == "📱 Platform Insights":
+            platform_insights_page(data['platform_data'], data['video_context_data'])
+
+        elif page_name == "🤖 AI Intelligence Center":
+            ai_intelligence_center_page()
+
+        elif page_name == "🎲 Get Lucky":
+            get_lucky_page()
+
+        else:
+            st.error(f"Unknown page: {page_name}")
+            st.info("Please select a valid page from the sidebar.")
+
+    except Exception as e:
+        st.error(f"Error rendering page '{page_name}': {str(e)}")
+        
+        # Show minimal fallback content
+        st.subheader("⚠️ Service Temporarily Unavailable")
+        st.info("There was an issue loading this page. Please try refreshing or contact support if the issue persists.")
+        
+        # Show debug info in expander
+        with st.expander("Debug Information"):
+            st.code(f"Error: {str(e)}")
+            st.code(f"Available data keys: {list(data.keys())}")
+
+# Route to the selected page
+render_page(page, data)
 
 # Add footer
 Navigation.page_footer()
