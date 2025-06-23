@@ -35,30 +35,57 @@ create_dashboard_header()
 if 'initialized' not in st.session_state:
     st.session_state.initialized = True
     st.session_state.last_refresh = pd.Timestamp.now()
+    st.session_state.data_cache = {}
+    st.session_state.page_state = {}
+
+# Ensure page selection persists
+if 'current_page' not in st.session_state:
+    st.session_state.current_page = "🏠 Overview"
 
 # Create consolidated sidebar navigation
 page = Navigation.create_sidebar_nav()
+
+# Update current page
+st.session_state.current_page = page
 
 # Load data using centralized DataManager
 @st.cache_data
 def load_consolidated_data():
     """Load all required data with improved error handling and consistency"""
+    data = {}
+    
     try:
-        with st.spinner("Loading dashboard data..."):
-            data = {}
+        # Use progress bar for user feedback
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        
+        status_text.text("Loading overall statistics...")
+        progress_bar.progress(10)
+        data['stats'] = DataManager.get_overall_stats() or {}
+        
+        status_text.text("Loading artist trends...")
+        progress_bar.progress(25)
+        data['artist_data'] = DataManager.get_artist_trends()
+        if data['artist_data'].empty:
+            data['artist_data'] = pd.DataFrame(columns=['artist_name', 'mention_count', 'sentiment_score'])
+        
+        status_text.text("Loading genre data...")
+        progress_bar.progress(40)
+        data['genre_data'] = DataManager.get_genre_trends()
+        if data['genre_data'].empty:
+            data['genre_data'] = pd.DataFrame(columns=['genre_name', 'mention_count', 'sentiment_score'])
+            
+        status_text.text("Loading additional data...")
+        progress_bar.progress(60)
+        data['genre_artist_diversity_data'] = DataManager.get_genre_artist_diversity()
+        data['artists_without_genre_count'] = DataManager.get_artists_without_genre_count() or 0
+        data['platform_data'] = DataManager.get_platform_data()
+        data['temporal_data'] = DataManager.get_temporal_data()
+        data['wordcloud_data'] = DataManager.get_wordcloud_data()
 
-            # Core data for overview and genre analysis
-            data['stats'] = DataManager.get_overall_stats()
-            data['artist_data'] = DataManager.get_artist_trends()
-            data['genre_data'] = DataManager.get_genre_trends()
-            data['genre_artist_diversity_data'] = DataManager.get_genre_artist_diversity()
-            data['artists_without_genre_count'] = DataManager.get_artists_without_genre_count()
-            data['platform_data'] = DataManager.get_platform_data()
-            data['temporal_data'] = DataManager.get_temporal_data()
-            data['wordcloud_data'] = DataManager.get_wordcloud_data()
-
-            # Video context for platform insights
-            data['video_context_data'] = DataManager.get_video_context_data()
+        status_text.text("Loading video context data...")
+        progress_bar.progress(80)
+        data['video_context_data'] = DataManager.get_video_context_data()
 
             return data
 
