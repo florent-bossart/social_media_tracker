@@ -71,7 +71,8 @@ def display_metrics_row(stats):
         st.metric("Total Extractions", f"{total_mentions:,}")
 
     with col2:
-        avg_sentiment = float(stats.get('avg_sentiment', 5.0)) if stats and 'avg_sentiment' in stats else 5.0
+        avg_sentiment_raw = stats.get('avg_sentiment', 5.0) if stats and 'avg_sentiment' in stats else 5.0
+        avg_sentiment = float(avg_sentiment_raw) if avg_sentiment_raw is not None else 5.0
         st.metric("Average Sentiment", f"{avg_sentiment:.1f}/10")
 
     with col3:
@@ -79,8 +80,11 @@ def display_metrics_row(stats):
         st.metric("Unique Artists", unique_artists)
 
     with col4:
-        if stats['total_sentiment_count'] > 0:
-            positive_pct = (stats['positive_count'] / stats['total_sentiment_count']) * 100
+        total_sentiment_count = stats.get('total_sentiment_count', 0) if stats else 0
+        positive_count = stats.get('positive_count', 0) if stats else 0
+        
+        if total_sentiment_count and total_sentiment_count > 0 and positive_count is not None:
+            positive_pct = (positive_count / total_sentiment_count) * 100
             st.metric("Positive Sentiment", f"{positive_pct:.1f}%")
         else:
             st.metric("Positive Sentiment", "N/A")

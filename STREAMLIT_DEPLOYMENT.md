@@ -33,11 +33,11 @@
 2. **Add your database configuration** in TOML format:
    ```toml
    [database]
-   host = "db.swjvbxebxxfrrmmkdnyg.supabase.co"
+   host = "your-supabase-host.supabase.co"
    port = 5432
    database = "postgres"
    username = "postgres"
-   password = "nYwH9g8I2J3ETrKS"
+   password = "your-password-here"
    ```
 3. **Click "Save"**
 4. **Wait 1 minute** for changes to propagate

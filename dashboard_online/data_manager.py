@@ -439,12 +439,12 @@ class DataManager:
             profile = {
                 'basic_info': {
                     'name': artist_name,
-                    'mention_count': int(basic_info.iloc[0]['mention_count']),
-                    'sentiment_score': float(basic_info.iloc[0]['sentiment_score']),
-                    'trend_strength': float(basic_info.iloc[0]['trend_strength']),
-                    'trend_direction': basic_info.iloc[0]['trend_direction'],
-                    'engagement_level': basic_info.iloc[0]['engagement_level'],
-                    'platform_count': int(basic_info.iloc[0]['platform_count'])
+                    'mention_count': int(basic_info.iloc[0]['mention_count']) if basic_info.iloc[0]['mention_count'] is not None else 0,
+                    'sentiment_score': float(basic_info.iloc[0]['sentiment_score']) if basic_info.iloc[0]['sentiment_score'] is not None else 5.0,
+                    'trend_strength': float(basic_info.iloc[0]['trend_strength']) if basic_info.iloc[0]['trend_strength'] is not None else 0.5,
+                    'trend_direction': basic_info.iloc[0]['trend_direction'] if basic_info.iloc[0]['trend_direction'] is not None else 'neutral',
+                    'engagement_level': basic_info.iloc[0]['engagement_level'] if basic_info.iloc[0]['engagement_level'] is not None else 'low',
+                    'platform_count': int(basic_info.iloc[0]['platform_count']) if basic_info.iloc[0]['platform_count'] is not None else 1
                 }
             }
 
@@ -575,9 +575,9 @@ class DataManager:
             if not sentiment.empty:
                 row = sentiment.iloc[0]
                 return {
-                    'overall_sentiment': row['overall_sentiment'],
-                    'sentiment_score': float(row['sentiment_score']),
-                    'mention_count': int(row['mention_count'])
+                    'overall_sentiment': row['overall_sentiment'] if row['overall_sentiment'] is not None else 'neutral',
+                    'sentiment_score': float(row['sentiment_score']) if row['sentiment_score'] is not None else 5.0,
+                    'mention_count': int(row['mention_count']) if row['mention_count'] is not None else 0
                 }
             return {}
         except Exception:
