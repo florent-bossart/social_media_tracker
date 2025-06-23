@@ -734,7 +734,16 @@ def ai_insights_page(insights_summary_data):
                 if search_term != st.session_state.get('artist_search', ''):
                     st.session_state.artist_search = search_term
             with col2:
-                view_mode = st.selectbox("View Mode:", ["Search Results", "Browse All", "Summary Only"])
+                if 'ai_view_mode' not in st.session_state:
+                    st.session_state.ai_view_mode = "Search Results"
+                    
+                view_mode = st.selectbox(
+                    "View Mode:", 
+                    ["Search Results", "Browse All", "Summary Only"],
+                    index=["Search Results", "Browse All", "Summary Only"].index(st.session_state.ai_view_mode),
+                    key="ai_view_mode_select"
+                )
+                st.session_state.ai_view_mode = view_mode
             with col3:
                 st.write("")  # Empty space for alignment
                 if st.button("🗑️ Clear", help="Clear search"):
@@ -1437,11 +1446,20 @@ def get_lucky_page():
             )
 
     # Create view selector for detailed information
+    detail_view_key = f"artist_detail_view_{artist_name}"
+    if detail_view_key not in st.session_state:
+        st.session_state[detail_view_key] = "🎵 Genres"
+        
+    detail_view_options = ["🎵 Genres", "📱 Platform Presence", "💭 Sentiment Details", "🤖 AI Insights", "🎥 YouTube Videos"]
     detail_view = st.selectbox(
         "Select detail view:",
-        ["🎵 Genres", "📱 Platform Presence", "💭 Sentiment Details", "🤖 AI Insights", "🎥 YouTube Videos"],
-        key=f"artist_detail_view_{artist_name}"
+        detail_view_options,
+        index=detail_view_options.index(st.session_state[detail_view_key]),
+        key=f"artist_detail_view_select_{artist_name}"
     )
+    
+    # Update session state
+    st.session_state[detail_view_key] = detail_view
     
     st.markdown("---")
     
