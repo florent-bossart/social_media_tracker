@@ -106,30 +106,50 @@ if 'data_loaded' not in st.session_state:
 data = st.session_state.dashboard_data
 
 # Route to appropriate consolidated page
-if page == "🏠 Overview":
-    overview_page(
-        data['stats'],
-        data['artist_data'],
-        data['temporal_data']
-    )
+try:
+    if page == "🏠 Overview":
+        overview_page(
+            data['stats'],
+            data['artist_data'],
+            data['temporal_data']
+        )
 
-elif page == "🎤 Artist Analytics Hub":
-    artist_analytics_hub_page()
+    elif page == "🎤 Artist Analytics Hub":
+        artist_analytics_hub_page()
 
-elif page == "🎶 Genre Analysis":
-    enhanced_genre_analysis_page()
+    elif page == "🎶 Genre Analysis":
+        enhanced_genre_analysis_page()
 
-elif page == "☁️ Word Cloud":
-    wordcloud_page(data['wordcloud_data'])
+    elif page == "☁️ Word Cloud":
+        wordcloud_page(data['wordcloud_data'])
 
-elif page == "📱 Platform Insights":
-    platform_insights_page(data['platform_data'], data['video_context_data'])
+    elif page == "📱 Platform Insights":
+        platform_insights_page(data['platform_data'], data['video_context_data'])
 
-elif page == "🤖 AI Intelligence Center":
-    ai_intelligence_center_page()
+    elif page == "🤖 AI Intelligence Center":
+        ai_intelligence_center_page()
 
-elif page == "🎲 Get Lucky":
-    get_lucky_page()
+    elif page == "🎲 Get Lucky":
+        get_lucky_page()
+
+    else:
+        st.error(f"Unknown page: {page}")
+
+except Exception as e:
+    st.error(f"Error rendering page '{page}': {str(e)}")
+    st.code(traceback.format_exc())
+    
+    # Show a minimal fallback
+    st.subheader(f"⚠️ {page} - Service Temporarily Unavailable")
+    st.info("There was an issue loading this page. Please try refreshing or contact support if the issue persists.")
+    
+    # Show available data for debugging
+    if st.checkbox("Show debug information"):
+        st.json({
+            "page": page,
+            "error": str(e),
+            "data_keys": list(data.keys()) if data else []
+        })
 
 # Add footer
 Navigation.page_footer()
