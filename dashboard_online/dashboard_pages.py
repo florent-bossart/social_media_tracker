@@ -318,11 +318,18 @@ def platform_insights_page(platform_data, video_context_data=None):
         """)
 
     # Create view selector for different analysis views
+    if 'platform_insights_view' not in st.session_state:
+        st.session_state.platform_insights_view = "📊 Platform Comparison"
+        
     view_option = st.selectbox(
         "Select analysis view:",
         ["📊 Platform Comparison", "🎬 Video Context Analysis"],
-        key="platform_insights_view"
+        index=0 if st.session_state.platform_insights_view == "📊 Platform Comparison" else 1,
+        key="platform_insights_view_select"
     )
+    
+    # Update session state
+    st.session_state.platform_insights_view = view_option
     
     st.markdown("---")
     
