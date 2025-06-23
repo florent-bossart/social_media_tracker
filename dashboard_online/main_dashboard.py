@@ -1,6 +1,14 @@
 """
 Main Dashboard for Japanese Music Trends.
-Orchestrates all components and handles the main application flow.
+Orche# Simplified cache management
+if st.sidebar.button("🗑️ Clear Cache & Refresh"):
+    # Clear cache and session state
+    st.cache_data.clear()
+    # Clear only data-related session state, keep navigation state
+    keys_to_clear = [k for k in st.session_state.keys() if k.startswith(('dashboard_data', 'data_loaded'))]
+    for key in keys_to_clear:
+        del st.session_state[key]
+    st.rerun()all components and handles the main application flow.
 IMPROVED VERSION with consolidated pages and standardized components.
 """
 
@@ -114,8 +122,13 @@ def render_page(page_name: str, data: dict):
     # Always show page header first
     st.markdown(f"## {page_name}")
     
+    # Show loading indicator to prevent blank screens during transitions
+    placeholder = st.empty()
+    placeholder.info("Loading page content...")
+    
     try:
         if page_name == "🏠 Overview":
+            placeholder.empty()  # Clear loading message
             overview_page(
                 data['stats'],
                 data['artist_data'],
@@ -123,38 +136,49 @@ def render_page(page_name: str, data: dict):
             )
 
         elif page_name == "🎤 Artist Analytics Hub":
+            placeholder.empty()
             artist_analytics_hub_page()
 
         elif page_name == "🎶 Genre Analysis":
+            placeholder.empty()
             enhanced_genre_analysis_page()
 
         elif page_name == "☁️ Word Cloud":
+            placeholder.empty()
             wordcloud_page(data['wordcloud_data'])
 
         elif page_name == "📱 Platform Insights":
+            placeholder.empty()
             platform_insights_page(data['platform_data'], data['video_context_data'])
 
         elif page_name == "🤖 AI Intelligence Center":
+            placeholder.empty()
             ai_intelligence_center_page()
 
         elif page_name == "🎲 Get Lucky":
+            placeholder.empty()
             get_lucky_page()
 
         else:
+            placeholder.empty()
             st.error(f"Unknown page: {page_name}")
             st.info("Please select a valid page from the sidebar.")
 
     except Exception as e:
+        placeholder.empty()
         st.error(f"Error rendering page '{page_name}': {str(e)}")
         
-        # Show minimal fallback content
+        # Always show fallback content - never leave blank
         st.subheader("⚠️ Service Temporarily Unavailable")
-        st.info("There was an issue loading this page. Please try refreshing or contact support if the issue persists.")
+        st.info("There was an issue loading this page. Please try refreshing or selecting a different page.")
         
-        # Show debug info in expander
-        with st.expander("Debug Information"):
+        # Show debug info in expander (collapsed by default)
+        with st.expander("🔧 Technical Details", expanded=False):
             st.code(f"Error: {str(e)}")
-            st.code(f"Available data keys: {list(data.keys())}")
+            st.code(f"Page: {page_name}")
+            st.code(f"Available data: {list(data.keys())}")
+            if st.checkbox("Show full traceback"):
+                st.code(traceback.format_exc())
 
 # Route to the selected page
 render_page(page, data)
