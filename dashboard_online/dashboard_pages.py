@@ -191,7 +191,8 @@ def genre_analysis_page(genre_data, genre_artist_diversity_data, artists_without
 
             # Genre rankings - limit to 5 genres to match radar chart height
             for i, (_, genre) in enumerate(genre_data.head(5).iterrows()):
-                progress_value = float(genre['trend_strength'])
+                trend_strength_raw = genre.get('trend_strength', 0.5)
+                progress_value = float(trend_strength_raw) if trend_strength_raw is not None else 0.5
                 st.write(f"**{genre['genre']}**")
                 st.progress(min(progress_value, 1.0))  # Cap at 1.0 for progress bar
                 col_a, col_b, col_c = st.columns(3)
@@ -316,13 +317,18 @@ def platform_insights_page(platform_data, video_context_data=None):
         - Platform-specific engagement patterns and community behavior
         """)
 
-    # Create tabs for different analysis views
-    tab1, tab2 = st.tabs(["📊 Platform Comparison", "🎬 Video Context Analysis"])
-
-    with tab1:
+    # Create view selector for different analysis views
+    view_option = st.selectbox(
+        "Select analysis view:",
+        ["📊 Platform Comparison", "🎬 Video Context Analysis"],
+        key="platform_insights_view"
+    )
+    
+    st.markdown("---")
+    
+    if view_option == "📊 Platform Comparison":
         platform_comparison_section(platform_data)
-
-    with tab2:
+    else:
         video_context_section(video_context_data)
 
 def platform_comparison_section(platform_data):
@@ -1247,7 +1253,8 @@ def video_context_page(video_context_data):
                     st.markdown(f"🎤 **{mentions}**", help=f"{mentions} artist mentions found in comments")
 
                 with col3:
-                    percentage = float(video['artist_mention_percentage'])
+                    percentage_raw = video.get('artist_mention_percentage', 0.0)
+                    percentage = float(percentage_raw) if percentage_raw is not None else 0.0
                     st.markdown(f"📊 **{percentage:.1f}%**", help=f"{percentage:.1f}% of comments mention artists")
 
                 with col4:
@@ -1422,10 +1429,16 @@ def get_lucky_page():
                 help=f"Ranked #{rankings['platform_rank']} out of {rankings['total_artists']} artists by platform presence"
             )
 
-    # Create tabs for detailed information
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(["🎵 Genres", "📱 Platform Presence", "💭 Sentiment Details", "🤖 AI Insights", "🎥 YouTube Videos"])
-
-    with tab1:
+    # Create view selector for detailed information
+    detail_view = st.selectbox(
+        "Select detail view:",
+        ["🎵 Genres", "📱 Platform Presence", "💭 Sentiment Details", "🤖 AI Insights", "🎥 YouTube Videos"],
+        key=f"artist_detail_view_{artist_name}"
+    )
+    
+    st.markdown("---")
+    
+    if detail_view == "🎵 Genres":
         st.subheader("🎵 Associated Genres")
         genres = profile.get('genres', [])
         if genres:
@@ -1440,7 +1453,7 @@ def get_lucky_page():
         else:
             st.info(f"No genre associations found for {artist_name}")
 
-    with tab2:
+    elif detail_view == "📱 Platform Presence":
         st.subheader("📱 Platform Presence")
         platforms = profile.get('platforms', {})
         if platforms:
@@ -1472,7 +1485,7 @@ def get_lucky_page():
         else:
             st.info(f"No detailed platform data available for {artist_name}")
 
-    with tab3:
+    elif detail_view == "💭 Sentiment Details":
         st.subheader("💭 Sentiment Analysis")
         sentiment_details = profile.get('sentiment_details', {})
         if sentiment_details:
@@ -1513,7 +1526,7 @@ def get_lucky_page():
         else:
             st.info(f"No detailed sentiment data available for {artist_name}")
 
-    with tab4:
+    elif detail_view == "🤖 AI Insights":
         st.subheader("🤖 AI-Generated Insights")
         ai_insights = profile.get('ai_insights', [])
         if ai_insights:
@@ -1524,7 +1537,7 @@ def get_lucky_page():
             st.info(f"No AI insights available for {artist_name} yet.")
             st.markdown("*AI insights are generated based on discussion patterns and community engagement.*")
 
-    with tab5:
+    elif detail_view == "🎥 YouTube Videos":
         try:
             from get_lucky_youtube_patch import add_youtube_section_to_get_lucky
             add_youtube_section_to_get_lucky(artist_name)

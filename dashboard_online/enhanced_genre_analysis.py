@@ -109,10 +109,16 @@ def enhanced_genre_analysis_page():
             genre_artists = DataManager.get_genre_artists(selected_genre)
 
         if not genre_artists.empty:
-            # Create tabs for different views
-            tab1, tab2, tab3 = st.tabs(["📊 Artist Overview", "📈 Detailed Analysis", "💾 Export Data"])
+            # Create view selector for different views
+            genre_view = st.selectbox(
+                "Select view:",
+                ["📊 Artist Overview", "📈 Detailed Analysis", "💾 Export Data"],
+                key=f"genre_view_{selected_genre}"
+            )
+            
+            st.markdown("---")
 
-            with tab1:
+            if genre_view == "📊 Artist Overview":
                 # Artist metrics overview
                 col1, col2, col3 = st.columns(3)
                 with col1:
@@ -142,7 +148,7 @@ def enhanced_genre_analysis_page():
                 fig.update_layout(height=600, yaxis={'categoryorder': 'total ascending'})
                 st.plotly_chart(fig, use_container_width=True)
 
-            with tab2:
+            elif genre_view == "📈 Detailed Analysis":
                 # Detailed artist analysis
                 st.subheader("🔍 Detailed Artist Analysis")
 
@@ -182,7 +188,7 @@ def enhanced_genre_analysis_page():
                     hide_index=True
                 )
 
-            with tab3:
+            elif genre_view == "💾 Export Data":
                 # Export functionality
                 st.subheader("💾 Export Artist Data")
                 st.write(f"Export complete artist list for **{selected_genre}** genre")

@@ -323,13 +323,20 @@ class PageLayouts:
 
     @staticmethod
     def tabbed_content(tabs_config: Dict[str, callable]):
-        """Standardized tabbed content layout"""
+        """Standardized tabbed content layout - using selectbox for stability"""
         tab_names = list(tabs_config.keys())
-        tabs = st.tabs(tab_names)
-
-        for tab, (tab_name, content_func) in zip(tabs, tabs_config.items()):
-            with tab:
-                content_func()
+        
+        # Use selectbox instead of tabs for better compatibility
+        selected_tab = st.selectbox(
+            "Select view:",
+            tab_names,
+            key=f"tab_selector_{hash(str(tab_names))}"
+        )
+        
+        # Render selected content
+        if selected_tab in tabs_config:
+            st.markdown("---")
+            tabs_config[selected_tab]()
 
 class Navigation:
     """Navigation and routing utilities"""
