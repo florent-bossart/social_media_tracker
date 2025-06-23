@@ -89,15 +89,23 @@ def enhanced_genre_analysis_page():
     st.markdown("---")
     st.subheader("🎯 Genre Selection & Artist Discovery")
 
-    # Genre selector
+    # Genre selector with session state
     if not genre_data.empty:
         # Create a genre list with metrics
         genre_options = ["Select a genre..."] + genre_data['genre'].tolist()
+        
+        if 'selected_genre' not in st.session_state:
+            st.session_state.selected_genre = "Select a genre..."
+            
         selected_genre = st.selectbox(
             "Choose a genre to explore artists:",
             genre_options,
-            help="Select any genre to see all artists associated with it"
+            index=genre_options.index(st.session_state.selected_genre) if st.session_state.selected_genre in genre_options else 0,
+            help="Select any genre to see all artists associated with it",
+            key="genre_selector"
         )
+        
+        st.session_state.selected_genre = selected_genre
 
     # Genre-specific artist analysis
     if selected_genre and selected_genre != "Select a genre...":
@@ -110,11 +118,19 @@ def enhanced_genre_analysis_page():
 
         if not genre_artists.empty:
             # Create view selector for different views
+            genre_view_key = f"genre_view_{selected_genre}"
+            if genre_view_key not in st.session_state:
+                st.session_state[genre_view_key] = "📊 Artist Overview"
+                
+            genre_view_options = ["📊 Artist Overview", "📈 Detailed Analysis", "💾 Export Data"]
             genre_view = st.selectbox(
                 "Select view:",
-                ["📊 Artist Overview", "📈 Detailed Analysis", "💾 Export Data"],
-                key=f"genre_view_{selected_genre}"
+                genre_view_options,
+                index=genre_view_options.index(st.session_state[genre_view_key]),
+                key=f"genre_view_select_{selected_genre}"
             )
+            
+            st.session_state[genre_view_key] = genre_view
             
             st.markdown("---")
 
