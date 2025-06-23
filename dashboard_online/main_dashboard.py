@@ -87,24 +87,37 @@ def load_consolidated_data():
         progress_bar.progress(80)
         data['video_context_data'] = DataManager.get_video_context_data()
 
-            return data
+        status_text.text("Data loading complete!")
+        progress_bar.progress(100)
+        
+        # Clear progress indicators
+        progress_bar.empty()
+        status_text.empty()
+        
+        return data
 
     except Exception as e:
         st.error(f"Error loading dashboard data: {str(e)}")
-        StandardComponents.error_display(
-            f"Data loading failed: {str(e)}",
-            error_type="error"
-        )
-        # Return empty data structure to prevent crashes
+        
+        # Return minimal fallback data to prevent blank screen
         return {
             'stats': {},
-            'artist_data': pd.DataFrame(),
-            'genre_data': pd.DataFrame(),
+            'artist_data': pd.DataFrame(columns=['artist_name', 'mention_count', 'sentiment_score']),
+            'genre_data': pd.DataFrame(columns=['genre_name', 'mention_count', 'sentiment_score']),
             'genre_artist_diversity_data': pd.DataFrame(),
             'artists_without_genre_count': 0,
             'platform_data': pd.DataFrame(),
             'temporal_data': pd.DataFrame(),
             'wordcloud_data': pd.DataFrame(),
+            'video_context_data': pd.DataFrame()
+        }
+
+# Load data with error handling
+try:
+    data = load_consolidated_data()
+except Exception as e:
+    st.error(f"Critical error loading dashboard: {str(e)}")
+    st.stop()
             'video_context_data': pd.DataFrame()
         }
 
