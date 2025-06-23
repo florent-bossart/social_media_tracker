@@ -170,10 +170,19 @@ def enhanced_genre_analysis_page():
 
                 # Artist selection for detailed view
                 artist_options = ["Select an artist..."] + genre_artists['artist_name'].tolist()
+                
+                artist_select_key = f"selected_artist_{selected_genre}"
+                if artist_select_key not in st.session_state:
+                    st.session_state[artist_select_key] = "Select an artist..."
+                    
                 selected_artist = st.selectbox(
                     "Choose an artist for detailed analysis:",
-                    artist_options
+                    artist_options,
+                    index=artist_options.index(st.session_state[artist_select_key]) if st.session_state[artist_select_key] in artist_options else 0,
+                    key=f"artist_select_{selected_genre}"
                 )
+                
+                st.session_state[artist_select_key] = selected_artist
 
                 if selected_artist and selected_artist != "Select an artist...":
                     artist_data = genre_artists[genre_artists['artist_name'] == selected_artist].iloc[0]
