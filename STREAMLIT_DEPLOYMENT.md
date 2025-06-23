@@ -30,17 +30,26 @@
 ### Step 3: Configure Secrets
 
 1. **In Streamlit Cloud app settings**, go to **"Secrets"**
-2. **Copy the contents from `.streamlit/secrets.toml`**
-3. **Paste into the secrets editor**
-4. **Update with your actual Supabase credentials**:
+2. **Add your database configuration** in TOML format:
    ```toml
    [database]
-   host = "db.your-project.supabase.co"
+   host = "db.swjvbxebxxfrrmmkdnyg.supabase.co"
    port = 5432
    database = "postgres"
    username = "postgres"
-   password = "your-actual-password"
+   password = "nYwH9g8I2J3ETrKS"
    ```
+3. **Click "Save"**
+4. **Wait 1 minute** for changes to propagate
+
+### Step 3.5: Debug Secrets (If Having Issues)
+
+If you get "No database configuration found" errors:
+
+1. **Temporarily change your main file** to `debug_secrets.py`
+2. **Deploy and check** what the debug tool shows
+3. **Fix any issues** with your secrets configuration
+4. **Change main file back** to `streamlit_app.py`
 
 ### Step 4: Deploy and Test
 
@@ -61,18 +70,37 @@
 
 ### Common Issues:
 
-1. **Database Connection Failed**
-   - Check secrets configuration
-   - Verify Supabase credentials
-   - Ensure database was imported correctly
+1. **"No database configuration found" Error**
+   - Use the debug tool: Change main file to `debug_secrets.py`
+   - Check that secrets are in exact TOML format with `[database]` section
+   - Verify credentials are correct (host should start with `db.` and end with `.supabase.co`)
+   - Wait 1 minute after saving secrets for changes to propagate
 
-2. **Module Import Errors**
+2. **Database Connection Failed**
+   - Verify Supabase credentials in your Supabase dashboard
+   - Check that your Supabase project is active
+   - Ensure database was imported/migrated correctly
+
+3. **Module Import Errors**
    - Check requirements.txt has all dependencies
-   - Verify Python version compatibility
+   - Verify Python version is 3.9 or 3.10
 
-3. **Dashboard Not Loading**
-   - Check Streamlit Cloud logs
+4. **Dashboard Not Loading**
+   - Check Streamlit Cloud logs for detailed error messages
    - Verify streamlit_app.py path is correct
+
+### Debug Steps:
+
+1. **Test secrets configuration**:
+   - Change main file to `debug_secrets.py`
+   - Deploy and check what it shows
+   - Fix any configuration issues
+   - Change back to `streamlit_app.py`
+
+2. **Check database content**:
+   - Log into your Supabase dashboard
+   - Go to Table Editor
+   - Verify that analytics tables exist with data
 
 ### Testing Locally:
 

@@ -2,7 +2,7 @@
 
 [global]
 # Global configuration
-dataFrameSerialization = "legacy"
+# dataFrameSerialization option has been removed in newer Streamlit versions
 
 [server]
 # Server configuration
