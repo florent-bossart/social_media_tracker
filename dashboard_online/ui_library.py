@@ -323,20 +323,30 @@ class PageLayouts:
 
     @staticmethod
     def tabbed_content(tabs_config: Dict[str, callable]):
-        """Standardized tabbed content layout - using selectbox for stability"""
+        """Standardized tabbed content layout - using selectbox with session state for stability"""
         tab_names = list(tabs_config.keys())
+        tab_key = f"tab_selector_{hash(str(tab_names))}"
         
-        # Use selectbox instead of tabs for better compatibility
+        # Initialize session state
+        if tab_key not in st.session_state:
+            st.session_state[tab_key] = tab_names[0]
+        
+        # Use selectbox with session state
         selected_tab = st.selectbox(
             "Select view:",
             tab_names,
-            key=f"tab_selector_{hash(str(tab_names))}"
+            index=tab_names.index(st.session_state[tab_key]) if st.session_state[tab_key] in tab_names else 0,
+            key=f"{tab_key}_select"
         )
         
-        # Render selected content
+        # Update session state
+        st.session_state[tab_key] = selected_tab
+        
+        # Render selected content with spinner
         if selected_tab in tabs_config:
             st.markdown("---")
-            tabs_config[selected_tab]()
+            with st.spinner(f"Loading {selected_tab}..."):
+                tabs_config[selected_tab]()
 
 class Navigation:
     """Navigation and routing utilities"""
