@@ -56,6 +56,10 @@ wheels/
 env/
 venv/
 
+# Secrets and credentials
+.streamlit/secrets.toml
+secrets.toml
+
 # Database files
 *.db
 *.sqlite3
