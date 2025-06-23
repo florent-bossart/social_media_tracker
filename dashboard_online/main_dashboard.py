@@ -119,66 +119,53 @@ data = st.session_state.dashboard_data
 def render_page(page_name: str, data: dict):
     """Render the selected page with error handling and immediate content"""
     
-    # Always show page header first
+    # Always show page header first to prevent blank screen
     st.markdown(f"## {page_name}")
     
-    # Show loading indicator to prevent blank screens during transitions
+    # Show loading placeholder immediately
     placeholder = st.empty()
-    placeholder.info("Loading page content...")
+    with placeholder.container():
+        st.info(f"Loading {page_name}...")
     
     try:
+        # Clear placeholder and render actual content
+        placeholder.empty()
+        
         if page_name == "🏠 Overview":
-            placeholder.empty()  # Clear loading message
             overview_page(
                 data['stats'],
                 data['artist_data'],
                 data['temporal_data']
             )
-
         elif page_name == "🎤 Artist Analytics Hub":
-            placeholder.empty()
             artist_analytics_hub_page()
-
         elif page_name == "🎶 Genre Analysis":
-            placeholder.empty()
             enhanced_genre_analysis_page()
-
         elif page_name == "☁️ Word Cloud":
-            placeholder.empty()
             wordcloud_page(data['wordcloud_data'])
-
         elif page_name == "📱 Platform Insights":
-            placeholder.empty()
             platform_insights_page(data['platform_data'], data['video_context_data'])
-
         elif page_name == "🤖 AI Intelligence Center":
-            placeholder.empty()
             ai_intelligence_center_page()
-
         elif page_name == "🎲 Get Lucky":
-            placeholder.empty()
             get_lucky_page()
-
         else:
-            placeholder.empty()
             st.error(f"Unknown page: {page_name}")
             st.info("Please select a valid page from the sidebar.")
 
     except Exception as e:
+        # Clear placeholder on error
         placeholder.empty()
         st.error(f"Error rendering page '{page_name}': {str(e)}")
         
-        # Always show fallback content - never leave blank
+        # Show minimal fallback content
         st.subheader("⚠️ Service Temporarily Unavailable")
-        st.info("There was an issue loading this page. Please try refreshing or selecting a different page.")
+        st.info("There was an issue loading this page. Please try refreshing or contact support if the issue persists.")
         
-        # Show debug info in expander (collapsed by default)
-        with st.expander("🔧 Technical Details", expanded=False):
+        # Show debug info in expander
+        with st.expander("Debug Information"):
             st.code(f"Error: {str(e)}")
-            st.code(f"Page: {page_name}")
-            st.code(f"Available data: {list(data.keys())}")
-            if st.checkbox("Show full traceback"):
-                st.code(traceback.format_exc())
+            st.code(f"Available data keys: {list(data.keys())}")
 
 # Route to the selected page
 render_page(page, data)

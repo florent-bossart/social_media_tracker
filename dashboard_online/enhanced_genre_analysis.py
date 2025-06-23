@@ -218,12 +218,20 @@ def enhanced_genre_analysis_page():
                 st.subheader("💾 Export Artist Data")
                 st.write(f"Export complete artist list for **{selected_genre}** genre")
 
-                # Show export options
+                # Show export options with session state
+                export_format_key = f"export_format_{selected_genre}"
+                if export_format_key not in st.session_state:
+                    st.session_state[export_format_key] = "CSV"
+                    
                 export_format = st.radio(
                     "Choose export format:",
                     ["CSV", "JSON"],
-                    horizontal=True
+                    index=0 if st.session_state[export_format_key] == "CSV" else 1,
+                    horizontal=True,
+                    key=f"export_radio_{selected_genre}"
                 )
+                
+                st.session_state[export_format_key] = export_format
 
                 if export_format == "CSV":
                     csv_data = genre_artists.to_csv(index=False)
