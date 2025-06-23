@@ -54,6 +54,19 @@ if st.sidebar.checkbox("🔍 Debug Mode", False):
     st.sidebar.write(f"Data loaded: {'data_loaded' in st.session_state}")
     if 'dashboard_data' in st.session_state:
         st.sidebar.write("Data keys:", list(st.session_state.dashboard_data.keys()))
+    
+    # Force refresh button
+    if st.sidebar.button("🔄 Force Refresh Data"):
+        # Clear all session state
+        for key in list(st.session_state.keys()):
+            del st.session_state[key]
+        st.rerun()
+
+# Clear cache button for debugging
+if st.sidebar.button("🗑️ Clear Cache"):
+    st.cache_data.clear()
+    st.success("Cache cleared! Page will reload.")
+    st.rerun()
 
 # Load data using centralized DataManager
 @st.cache_data
@@ -107,6 +120,9 @@ data = st.session_state.dashboard_data
 
 # Route to appropriate consolidated page
 try:
+    # Force content to display - add immediate content for each page
+    st.markdown(f"# Currently viewing: {page}")
+    
     if page == "🏠 Overview":
         overview_page(
             data['stats'],
@@ -115,21 +131,27 @@ try:
         )
 
     elif page == "🎤 Artist Analytics Hub":
+        st.markdown("Loading Artist Analytics Hub...")
         artist_analytics_hub_page()
 
     elif page == "🎶 Genre Analysis":
+        st.markdown("Loading Genre Analysis...")
         enhanced_genre_analysis_page()
 
     elif page == "☁️ Word Cloud":
+        st.markdown("Loading Word Cloud...")
         wordcloud_page(data['wordcloud_data'])
 
     elif page == "📱 Platform Insights":
+        st.markdown("Loading Platform Insights...")
         platform_insights_page(data['platform_data'], data['video_context_data'])
 
     elif page == "🤖 AI Intelligence Center":
+        st.markdown("Loading AI Intelligence Center...")
         ai_intelligence_center_page()
 
     elif page == "🎲 Get Lucky":
+        st.markdown("Loading Get Lucky...")
         get_lucky_page()
 
     else:
