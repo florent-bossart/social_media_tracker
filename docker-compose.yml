@@ -20,13 +20,13 @@ services:
       context: .
     command: poetry run airflow scheduler
     restart: on-failure
-    # Memory limits to prevent system crashes
+    # Memory limits to prevent system crashes - increased for translation tasks
     deploy:
       resources:
         limits:
-          memory: 3G
+          memory: 6G  # Increased from 3G for translation models
         reservations:
-          memory: 1G
+          memory: 2G  # Increased from 1G
     healthcheck:
       test: ["CMD-SHELL", "poetry run airflow jobs check --job-type SchedulerJob --local || exit 1"]
       interval: 30s
@@ -47,10 +47,11 @@ services:
       - WAREHOUSE_PASSWORD=${WAREHOUSE_PASSWORD}
       - DBT_DB_PASSWORD=${DBT_DB_PASSWORD}
       - OLLAMA_HOST=${OLLAMA_HOST}
-      # Memory optimization environment variables
-      - PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:512
-      - MALLOC_ARENA_MAX=2
+      # Memory optimization environment variables - removed offline settings to allow model downloads
+      - PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:256
+      - MALLOC_ARENA_MAX=1
       - OMP_NUM_THREADS=1
+      - TOKENIZERS_PARALLELISM=false
     volumes:
       - ./dags:/app/airflow/dags
       - ./data:/app/airflow/data

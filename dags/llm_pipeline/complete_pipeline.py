@@ -30,7 +30,7 @@ def import_step_functions():
         # Simple approach: define the functions inline to avoid import issues
 
         def translate_latest_youtube_file(**context):
-            """Translate the latest YouTube cleaned file using the exact same approach as the working DAG."""
+            """Translate the latest YouTube cleaned file or skip if translated version exists."""
             import sys
             import subprocess
             import glob
@@ -54,6 +54,21 @@ def import_step_functions():
 
             print(f"Found latest YouTube cleaned file: {latest_file}")
 
+            # Check if translated version already exists
+            translated_dir = "/app/airflow/data/intermediate/translated"
+            input_filename = Path(latest_file).name
+            expected_output = input_filename.replace('_cleaned.csv', '_cleaned_nllb_translated.csv')
+            output_path = f"{translated_dir}/{expected_output}"
+            
+            if os.path.exists(output_path):
+                print(f"✅ Translated file already exists: {output_path}")
+                print("Skipping translation step to avoid memory issues")
+                return {
+                    "input_file": latest_file,
+                    "output_file": output_path,
+                    "status": "skipped_exists"
+                }
+
             # Extract just the filename for the output
             input_filename = Path(latest_file).name
 
@@ -61,28 +76,21 @@ def import_step_functions():
             output_dir = "/app/airflow/data/intermediate/translated"
             os.makedirs(output_dir, exist_ok=True)
 
-            # Run the memory-optimized translation script (exact same command as working DAG)
+            print("⚠️  No existing translated file found. Attempting translation with aggressive memory settings...")
+
+            # Run the translation script (same as working step1 DAG)
             cmd = [
                 "poetry", "run", "python",
-                "../data_pipeline/translate_youtube_comments_optimized.py",  # Use optimized version
+                "../data_pipeline/translate_youtube_comments.py",  # Use the same script as working DAG
                 "--input-file", latest_file,
                 "--output-dir", output_dir,
                 "--column", "comment_text"
             ]
 
-            print(f"Running optimized translation command: {' '.join(cmd)}")
-
-            # Set memory limits using environment variables (same as working DAG)
-            env = os.environ.copy()
-            env.update({
-                'PYTORCH_CUDA_ALLOC_CONF': 'max_split_size_mb:512',
-                'MALLOC_ARENA_MAX': '2',
-                'OMP_NUM_THREADS': '1',
-                'TOKENIZERS_PARALLELISM': 'false'  # Disable tokenizer parallelism to save memory
-            })
+            print(f"Running translation command: {' '.join(cmd)}")
 
             # Change to project directory to ensure .env file is found (same as working DAG)
-            result = subprocess.run(cmd, cwd="/app/airflow", capture_output=True, text=True, env=env)
+            result = subprocess.run(cmd, cwd="/app/airflow", capture_output=True, text=True)
 
             if result.returncode != 0:
                 print(f"Translation failed with return code {result.returncode}")
