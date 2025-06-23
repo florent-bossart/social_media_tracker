@@ -24,11 +24,51 @@ def get_database_connection():
         st.stop()
     
     try:
-        connection_string = f"postgresql+psycopg2://{st.secrets.database.username}:{st.secrets.database.password}@{st.secrets.database.host}:{st.secrets.database.port}/{st.secrets.database.database}?sslmode=require"
-        engine = create_engine(connection_string)
+        # Supabase connection with proper SSL and IPv4 settings
+        connection_string = f"postgresql+psycopg2://{st.secrets.database.username}:{st.secrets.database.password}@{st.secrets.database.host}:{st.secrets.database.port}/{st.secrets.database.database}"
+        
+        engine = create_engine(
+            connection_string,
+            connect_args={
+                "sslmode": "require",
+                "sslcert": None,
+                "sslkey": None,
+                "sslrootcert": None,
+                "sslcrl": None,
+                "application_name": "streamlit_dashboard",
+                "connect_timeout": 10,
+                # Force IPv4 to avoid IPv6 issues
+                "options": "-c default_transaction_isolation=read-committed"
+            },
+            pool_pre_ping=True,
+            pool_recycle=300,
+            echo=False
+        )
         return engine
     except Exception as e:
         st.error(f"❌ Database connection failed: {e}")
+        
+        # Show debug info
+        st.info("🔍 Debug Info:")
+        st.write(f"Host: {st.secrets.database.host}")
+        st.write(f"Port: {st.secrets.database.port}")
+        st.write(f"Database: {st.secrets.database.database}")
+        st.write(f"Username: {st.secrets.database.username}")
+        
+        # Alternative connection attempts
+        st.info("Trying alternative connection methods...")
+        
+        # Try without SSL requirement
+        try:
+            alt_connection = f"postgresql+psycopg2://{st.secrets.database.username}:{st.secrets.database.password}@{st.secrets.database.host}:{st.secrets.database.port}/{st.secrets.database.database}?sslmode=prefer"
+            alt_engine = create_engine(alt_connection, connect_args={"connect_timeout": 10})
+            with alt_engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+            st.success("✅ Alternative connection method worked!")
+            return alt_engine
+        except Exception as alt_e:
+            st.error(f"Alternative connection also failed: {alt_e}")
+        
         st.stop()
 
 def load_data():
