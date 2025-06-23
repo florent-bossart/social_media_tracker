@@ -118,11 +118,6 @@ try:
 except Exception as e:
     st.error(f"Critical error loading dashboard: {str(e)}")
     st.stop()
-            'video_context_data': pd.DataFrame()
-        }
-
-# Load consolidated data
-data = load_consolidated_data()
 
 # Route to appropriate consolidated page
 if page == "🏠 Overview":
