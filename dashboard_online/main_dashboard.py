@@ -35,37 +35,27 @@ create_dashboard_header()
 if 'initialized' not in st.session_state:
     st.session_state.initialized = True
     st.session_state.last_refresh = pd.Timestamp.now()
-    st.session_state.data_cache = {}
-    st.session_state.page_state = {}
-
-# Ensure page selection persists
-if 'current_page' not in st.session_state:
-    st.session_state.current_page = "🏠 Overview"
 
 # Create consolidated sidebar navigation
 page = Navigation.create_sidebar_nav()
 
-# Update current page
-st.session_state.current_page = page
-
-# Debug information (can be removed in production)
-if st.sidebar.checkbox("🔍 Debug Mode", False):
-    st.sidebar.write(f"Current page: {page}")
-    st.sidebar.write(f"Data loaded: {'data_loaded' in st.session_state}")
+# Simplified debug info in sidebar (no rerun-triggering elements)
+with st.sidebar.expander("🔍 Debug Info", expanded=False):
+    st.write(f"Current page: {page}")
+    st.write(f"Data loaded: {'data_loaded' in st.session_state}")
     if 'dashboard_data' in st.session_state:
-        st.sidebar.write("Data keys:", list(st.session_state.dashboard_data.keys()))
+        st.write("Data keys:", list(st.session_state.dashboard_data.keys()))
     
-    # Force refresh button
-    if st.sidebar.button("🔄 Force Refresh Data"):
-        # Clear all session state
-        for key in list(st.session_state.keys()):
-            del st.session_state[key]
-        st.rerun()
+    # Non-interactive refresh instructions
+    st.info("To refresh data: Use browser refresh (F5) or clear cache below")
 
-# Clear cache button for debugging
-if st.sidebar.button("🗑️ Clear Cache"):
+# Simplified cache management
+if st.sidebar.button("�️ Clear Cache & Refresh"):
+    # Clear cache and session state
     st.cache_data.clear()
-    st.success("Cache cleared! Page will reload.")
+    for key in list(st.session_state.keys()):
+        if key not in ['initialized']:  # Keep initialization state
+            del st.session_state[key]
     st.rerun()
 
 # Load data using centralized DataManager

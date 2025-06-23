@@ -343,19 +343,32 @@ class Navigation:
 
     @staticmethod
     def create_sidebar_nav() -> str:
-        """Create standardized sidebar navigation"""
+        """Create standardized sidebar navigation using selectbox for stability"""
         st.sidebar.title("🎵 Navigation")
 
-        # Consolidated navigation structure
-        return st.sidebar.radio("Choose a section:", [
+        # Use selectbox for more stable navigation
+        pages = [
             "🏠 Overview",
-            "🎤 Artist Analytics Hub",
+            "🎤 Artist Analytics Hub", 
             "🎶 Genre Analysis",
             "☁️ Word Cloud",
             "📱 Platform Insights",
             "🤖 AI Intelligence Center",
             "🎲 Get Lucky"
-        ])
+        ]
+        
+        # Use session state to preserve selection
+        if 'selected_page' not in st.session_state:
+            st.session_state.selected_page = pages[0]
+            
+        selected = st.sidebar.selectbox(
+            "Choose a section:",
+            pages,
+            index=pages.index(st.session_state.selected_page) if st.session_state.selected_page in pages else 0
+        )
+        
+        st.session_state.selected_page = selected
+        return selected
 
     @staticmethod
     def page_footer():
