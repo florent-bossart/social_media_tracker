@@ -1,0 +1,23 @@
+# Streamlit Configuration for Cloud Deployment
+
+[global]
+# Global configuration
+# dataFrameSerialization option has been removed in newer Streamlit versions
+
+[server]
+# Server configuration
+headless = true
+enableCORS = false
+enableXsrfProtection = false
+
+[browser]
+# Browser configuration
+gatherUsageStats = false
+
+[theme]
+# Theme configuration for better appearance
+primaryColor = "#FF6B6B"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F0F2F6"
+textColor = "#262730"
+font = "sans serif"

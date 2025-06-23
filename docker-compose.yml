@@ -20,6 +20,13 @@ services:
       context: .
     command: poetry run airflow scheduler
     restart: on-failure
+    # Memory limits to prevent system crashes - increased for translation tasks
+    deploy:
+      resources:
+        limits:
+          memory: 6G  # Increased from 3G for translation models
+        reservations:
+          memory: 2G  # Increased from 1G
     healthcheck:
       test: ["CMD-SHELL", "poetry run airflow jobs check --job-type SchedulerJob --local || exit 1"]
       interval: 30s
@@ -39,6 +46,12 @@ services:
       - WAREHOUSE_USER=${WAREHOUSE_USER}
       - WAREHOUSE_PASSWORD=${WAREHOUSE_PASSWORD}
       - DBT_DB_PASSWORD=${DBT_DB_PASSWORD}
+      - OLLAMA_HOST=${OLLAMA_HOST}
+      # Memory optimization environment variables - removed offline settings to allow model downloads
+      - PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:256
+      - MALLOC_ARENA_MAX=1
+      - OMP_NUM_THREADS=1
+      - TOKENIZERS_PARALLELISM=false
     volumes:
       - ./dags:/app/airflow/dags
       - ./data:/app/airflow/data
@@ -46,6 +59,7 @@ services:
       - ./dbt_social_media_tracker:/app/airflow/dbt_social_media_tracker
       - /home/florent.bossart/.gcp_keys:/app/airflow/.gcp_keys
       - ./data_pipeline:/app/data_pipeline
+      - ./llm_enrichment:/app/llm_enrichment
       - /var/run/docker.sock:/var/run/docker.sock
 
   webserver:
@@ -53,6 +67,13 @@ services:
       context: .
     command: poetry run scripts/entrypoint.sh
     restart: on-failure
+    # Memory limits for webserver
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
     depends_on:
       - postgres
       - scheduler
@@ -70,11 +91,13 @@ services:
       - WAREHOUSE_USER=${WAREHOUSE_USER}
       - WAREHOUSE_PASSWORD=${WAREHOUSE_PASSWORD}
       - DBT_DB_PASSWORD=${DBT_DB_PASSWORD}
+      - OLLAMA_HOST=${OLLAMA_HOST}
     volumes:
       - ./dags:/app/airflow/dags
       - ./data:/app/airflow/data
       - ./logs:/app/airflow/logs
       - ./data_pipeline:/app/data_pipeline
+      - ./llm_enrichment:/app/llm_enrichment
       - /var/run/docker.sock:/var/run/docker.sock
     ports:
       - "8080:8080"
@@ -141,6 +164,7 @@ services:
       - WAREHOUSE_DB=${WAREHOUSE_DB}
       - WAREHOUSE_USER=${WAREHOUSE_USER}
       - WAREHOUSE_PASSWORD=${WAREHOUSE_PASSWORD}
+      - YOUTUBE_API_KEY=${YOUTUBE_API_KEY}
     depends_on:
       - social_media_tracker_db
     restart: always

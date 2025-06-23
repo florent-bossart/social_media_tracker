@@ -7,14 +7,14 @@ import streamlit as st
 import pandas as pd
 from urllib.parse import unquote
 from database_service import fetch_data
-from typing import Dict, Optional, Any
+from typing import Dict, Optional, Any, List
 
 class DataManager:
     """Centralized data management with consistent caching and transformations"""
-    
+
     # Standard cache TTL for dynamic data (5 minutes) - not used directly
     DYNAMIC_TTL = 300
-    
+
     @staticmethod
     def decode_url_field(text: str) -> str:
         """Decode URL-encoded text safely"""
@@ -30,14 +30,14 @@ class DataManager:
         """Decode artist names in DataFrame"""
         if df.empty:
             return df
-        
+
         df = df.copy()
         artist_columns = ['artist_name', 'artist', 'artists', 'entity_name']
-        
+
         for col in artist_columns:
             if col in df.columns:
                 df[col] = df[col].apply(DataManager.decode_url_field)
-        
+
         return df
 
     @staticmethod
@@ -45,14 +45,14 @@ class DataManager:
         """Decode genre names in DataFrame"""
         if df.empty:
             return df
-        
+
         df = df.copy()
         genre_columns = ['genre_name', 'genre', 'genres']
-        
+
         for col in genre_columns:
             if col in df.columns:
                 df[col] = df[col].apply(DataManager.decode_url_field)
-        
+
         return df
 
     @staticmethod
@@ -60,39 +60,32 @@ class DataManager:
         """Decode specified text columns in DataFrame"""
         if df.empty:
             return df
-        
+
         df = df.copy()
         for col in columns:
             if col in df.columns:
                 df[col] = df[col].apply(DataManager.decode_url_field)
-        
+
         return df
 
     # === CORE DATA FETCHING METHODS ===
-    
+
     @staticmethod
     @st.cache_data
     def get_artist_trends() -> pd.DataFrame:
-        """Fetch artist trends from DBT view with Babymetal adjustment"""
+        """Fetch artist trends from DBT view (Babymetal adjustment already applied in DBT)"""
         query = """
-        SELECT 
+        SELECT
             artist_name,
-            CASE 
-                WHEN LOWER(artist_name) = 'babymetal' THEN CAST(mention_count * 0.2 AS INTEGER)
-                ELSE mention_count
-            END as mention_count,
+            mention_count,
             sentiment_score,
             trend_strength,
             trend_direction,
             engagement_level,
             platform_count
-        FROM analytics.artist_trends_dashboard 
+        FROM analytics.artist_trends_dashboard
         WHERE artist_name IS NOT NULL AND artist_name != ''
-        ORDER BY 
-            CASE 
-                WHEN LOWER(artist_name) = 'babymetal' THEN CAST(mention_count * 0.2 AS INTEGER)
-                ELSE mention_count
-            END DESC
+        ORDER BY mention_count DESC
         LIMIT 100
         """
         result = fetch_data(query)
@@ -111,7 +104,7 @@ class DataManager:
         """Fetch artists by genre from the genre_artists_dashboard view"""
         if genre_name:
             query = """
-            SELECT 
+            SELECT
                 genre_name,
                 artist_name,
                 mention_count,
@@ -127,7 +120,7 @@ class DataManager:
             result = fetch_data(query, params=(genre_name,))
         else:
             query = """
-            SELECT 
+            SELECT
                 genre_name,
                 artist_name,
                 mention_count,
@@ -140,7 +133,7 @@ class DataManager:
             LIMIT 500
             """
             result = fetch_data(query)
-        
+
         return DataManager.decode_artist_names(result)
 
     @staticmethod
@@ -173,7 +166,7 @@ class DataManager:
         return result.iloc[0].to_dict() if not result.empty else {}
 
     # === AI & INSIGHTS DATA ===
-    
+
     @staticmethod
     @st.cache_data(ttl=300)
     def get_trend_summary_data() -> Dict[str, pd.DataFrame]:
@@ -283,20 +276,20 @@ class DataManager:
             }
 
     # === ENRICHED DATA ===
-    
+
     @staticmethod
     @st.cache_data
     def get_artist_analytics_hub_data() -> Dict[str, pd.DataFrame]:
         """Fetch all data for the unified Artist Analytics Hub"""
         try:
             data = {}
-            
+
             # Core artist trends
             data['trends'] = DataManager.get_artist_trends()
-            
+
             # Sentiment analysis
             sentiment_query = """
-            SELECT 
+            SELECT
                 artist_name,
                 overall_sentiment,
                 avg_sentiment_score as sentiment_score,
@@ -305,42 +298,33 @@ class DataManager:
             ORDER BY mention_count DESC
             """
             data['sentiment'] = DataManager.decode_artist_names(fetch_data(sentiment_query))
-            
+
             # Enriched artist data
             enriched_query = """
             SELECT * FROM analytics.artist_trends_enriched_dashboard
             ORDER BY total_mentions DESC
             LIMIT 100
             """
-            try:
-                data['enriched'] = DataManager.decode_artist_names(fetch_data(enriched_query))
-            except Exception:
-                data['enriched'] = pd.DataFrame()
-            
+            data['enriched'] = DataManager.decode_artist_names(fetch_data(enriched_query))
+
             # URL analysis
             url_query = """
             SELECT * FROM analytics.url_analysis_dashboard
             ORDER BY mention_count DESC
             LIMIT 50
             """
-            try:
-                data['url_analysis'] = DataManager.decode_artist_names(fetch_data(url_query))
-            except Exception:
-                data['url_analysis'] = pd.DataFrame()
-            
+            data['url_analysis'] = DataManager.decode_artist_names(fetch_data(url_query))
+
             # Author influence
             author_query = """
             SELECT * FROM analytics.author_influence_dashboard
             ORDER BY total_mentions DESC
             LIMIT 50
             """
-            try:
-                data['author_influence'] = fetch_data(author_query)
-            except Exception:
-                data['author_influence'] = pd.DataFrame()
-            
+            data['author_influence'] = fetch_data(author_query)
+
             return data
-            
+
         except Exception as e:
             st.error(f"Error loading artist analytics data: {e}")
             return {
@@ -352,7 +336,7 @@ class DataManager:
             }
 
     # === SPECIALIZED DATA ===
-    
+
     @staticmethod
     @st.cache_data
     def get_genre_artist_diversity() -> pd.DataFrame:
@@ -360,7 +344,7 @@ class DataManager:
         query = "SELECT * FROM analytics.genre_artist_diversity_dashboard"
         return fetch_data(query)
 
-    @staticmethod  
+    @staticmethod
     @st.cache_data
     def get_artists_without_genre_count() -> int:
         """Get count of artists without genre assignment"""
@@ -384,19 +368,19 @@ class DataManager:
             return pd.DataFrame()
 
     # === DATA VALIDATION ===
-    
+
     @staticmethod
     def validate_dataframe(df: pd.DataFrame, expected_columns: list = None) -> bool:
         """Validate DataFrame structure and content"""
         if df is None or df.empty:
             return False
-        
+
         if expected_columns:
             missing_cols = set(expected_columns) - set(df.columns)
             if missing_cols:
                 st.warning(f"Missing expected columns: {missing_cols}")
                 return False
-        
+
         return True
 
     @staticmethod
@@ -410,7 +394,21 @@ class DataManager:
             return fallback or pd.DataFrame()
 
     # === GET LUCKY FEATURE ===
-    
+
+    @staticmethod
+    @st.cache_data(ttl=300)  # Cache for 5 minutes since YouTube API has quota limits
+    def get_artist_youtube_videos(artist_name: str) -> List[Dict[str, Any]]:
+        """Get YouTube videos for an artist using the YouTube API"""
+        try:
+            from youtube_search import search_artist_videos
+            return search_artist_videos(artist_name, max_results=5)
+        except ImportError:
+            st.warning("YouTube API not available. Please check API configuration.")
+            return []
+        except Exception as e:
+            st.error(f"Error fetching YouTube videos: {e}")
+            return []
+
     @staticmethod
     @st.cache_data(ttl=60)  # Cache for 1 minute to allow quick re-rolls
     def get_random_artist_profile() -> Dict[str, Any]:
@@ -418,7 +416,7 @@ class DataManager:
         try:
             # First, get a random artist from the main artist trends
             random_query = """
-            SELECT 
+            SELECT
                 artist_name,
                 mention_count,
                 sentiment_score,
@@ -426,17 +424,17 @@ class DataManager:
                 trend_direction,
                 engagement_level,
                 platform_count
-            FROM analytics.artist_trends_dashboard 
-            ORDER BY RANDOM() 
+            FROM analytics.artist_trends_dashboard
+            ORDER BY RANDOM()
             LIMIT 1
             """
-            
+
             basic_info = fetch_data(random_query)
             if basic_info.empty:
                 return {}
-            
+
             artist_name = basic_info.iloc[0]['artist_name']
-            
+
             # Get comprehensive artist data across all tables
             profile = {
                 'basic_info': {
@@ -449,35 +447,35 @@ class DataManager:
                     'platform_count': int(basic_info.iloc[0]['platform_count'])
                 }
             }
-            
+
             # Get artist rankings across different metrics
             profile['rankings'] = DataManager._get_artist_rankings(artist_name)
-            
+
             # Get genre associations
             profile['genres'] = DataManager._get_artist_genres(artist_name)
-            
+
             # Get platform presence
             profile['platforms'] = DataManager._get_artist_platforms(artist_name)
-            
+
             # Get sentiment details
             profile['sentiment_details'] = DataManager._get_artist_sentiment_details(artist_name)
-            
+
             # Get AI insights if available
             profile['ai_insights'] = DataManager._get_artist_ai_insights(artist_name)
-            
+
             return profile
-            
+
         except Exception as e:
             st.error(f"Error getting random artist profile: {e}")
             return {}
-    
+
     @staticmethod
     def _get_artist_rankings(artist_name: str) -> Dict[str, Any]:
         """Get artist rankings across different metrics"""
         try:
             ranking_query = f"""
             WITH artist_ranks AS (
-                SELECT 
+                SELECT
                     artist_name,
                     ROW_NUMBER() OVER (ORDER BY mention_count DESC) as mention_rank,
                     ROW_NUMBER() OVER (ORDER BY sentiment_score DESC) as sentiment_rank,
@@ -486,13 +484,13 @@ class DataManager:
                     COUNT(*) OVER () as total_artists
                 FROM analytics.artist_trends_dashboard
             )
-            SELECT 
+            SELECT
                 mention_rank,
                 sentiment_rank,
                 trend_rank,
                 platform_rank,
                 total_artists
-            FROM artist_ranks 
+            FROM artist_ranks
             WHERE artist_name = '{artist_name}'
             """
             rankings = fetch_data(ranking_query)
@@ -508,31 +506,31 @@ class DataManager:
             return {}
         except Exception:
             return {}
-    
+
     @staticmethod
     def _get_artist_genres(artist_name: str) -> list:
         """Get genres associated with the artist"""
         try:
             genre_query = f"""
-            SELECT DISTINCT genre_name 
-            FROM analytics.genre_artists_dashboard 
+            SELECT DISTINCT genre_name
+            FROM analytics.genre_artists_dashboard
             WHERE artist_name = '{artist_name}'
             ORDER BY mention_count DESC
             LIMIT 5
             """
-            
+
             genres = fetch_data(genre_query)
             return genres['genre_name'].tolist() if not genres.empty else []
         except Exception:
             return []
-    
+
     @staticmethod
     def _get_artist_platforms(artist_name: str) -> Dict[str, Any]:
         """Get platform-specific data for the artist"""
         try:
             # Try to get enriched data first
             platform_query = f"""
-            SELECT 
+            SELECT
                 youtube_mentions,
                 reddit_mentions,
                 total_mentions,
@@ -540,10 +538,10 @@ class DataManager:
                 unique_posts_mentioned,
                 unique_channels,
                 unique_subreddits
-            FROM analytics.artist_trends_enriched_dashboard 
+            FROM analytics.artist_trends_enriched_dashboard
             WHERE artist_name = '{artist_name}'
             """
-            
+
             platforms = fetch_data(platform_query)
             if not platforms.empty:
                 row = platforms.iloc[0]
@@ -559,20 +557,20 @@ class DataManager:
             return {}
         except Exception:
             return {}
-    
+
     @staticmethod
     def _get_artist_sentiment_details(artist_name: str) -> Dict[str, Any]:
         """Get detailed sentiment information for the artist"""
         try:
             sentiment_query = f"""
-            SELECT 
+            SELECT
                 overall_sentiment,
                 avg_sentiment_score as sentiment_score,
                 mention_count
-            FROM analytics.artist_sentiment_dashboard 
+            FROM analytics.artist_sentiment_dashboard
             WHERE artist_name = '{artist_name}'
             """
-            
+
             sentiment = fetch_data(sentiment_query)
             if not sentiment.empty:
                 row = sentiment.iloc[0]
@@ -584,19 +582,19 @@ class DataManager:
             return {}
         except Exception:
             return {}
-    
+
     @staticmethod
     def _get_artist_ai_insights(artist_name: str) -> list:
         """Get AI-generated insights for the artist"""
         try:
             insights_query = f"""
-            SELECT insight_text 
-            FROM analytics.artist_insights_dashboard 
+            SELECT insight_text
+            FROM analytics.artist_insights_dashboard
             WHERE artist_name = '{artist_name}'
             ORDER BY RANDOM()
             LIMIT 3
             """
-            
+
             insights = fetch_data(insights_query)
             return insights['insight_text'].tolist() if not insights.empty else []
         except Exception:

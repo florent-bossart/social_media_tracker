@@ -6,21 +6,24 @@ WITH exploded_data AS (
         ee.source_platform,
         ee.confidence_score,
         ee.extraction_date,
-        TRIM(jsonb_array_elements_text(ee.entities_genres)) as raw_genre,
-        TRIM(jsonb_array_elements_text(ee.entities_artists)) as artist_name,
+        TRIM(genre_element.value) as raw_genre,
+        TRIM(artist_element.value) as artist_name,
         sa.sentiment_strength
     FROM {{ source('analytics', 'entity_extraction') }} ee
     LEFT JOIN {{ source('analytics', 'sentiment_analysis') }} sa
         ON ee.original_text = sa.original_text
+    CROSS JOIN LATERAL jsonb_array_elements_text(ee.entities_genres) AS genre_element(value)
+    CROSS JOIN LATERAL jsonb_array_elements_text(ee.entities_artists) AS artist_element(value)
     WHERE ee.entities_genres IS NOT NULL
         AND jsonb_array_length(ee.entities_genres) > 0
         AND ee.entities_artists IS NOT NULL
         AND jsonb_array_length(ee.entities_artists) > 0
+        AND {{ filter_valid_artists('TRIM(artist_element.value)') }}
 ),
 normalized_genre_artists AS (
     SELECT
         -- Apply the same normalization logic as other genre models
-        CASE 
+        CASE
             WHEN LOWER(TRIM(raw_genre)) IN ('pop', 'j-pop', 'jpop', 'j pop') THEN 'J-Pop'
             WHEN LOWER(TRIM(raw_genre)) IN ('rock', 'j-rock', 'jrock', 'j rock') THEN 'J-Rock'
             WHEN LOWER(TRIM(raw_genre)) IN ('metal', 'j-metal', 'jmetal') THEN 'Metal'
@@ -93,7 +96,7 @@ genre_artist_stats AS (
     SELECT
         normalized_genre as genre_name,
         -- Normalize artist names to handle duplicates like "BABYMETAL", "Babymetal", "BabyMetal"
-        CASE 
+        CASE
             WHEN LOWER(TRIM(artist_name)) = 'babymetal' THEN 'BABYMETAL'
             WHEN LOWER(TRIM(artist_name)) = 'one ok rock' THEN 'ONE OK ROCK'
             WHEN LOWER(TRIM(artist_name)) = 'yui' THEN 'YUI'
@@ -127,8 +130,8 @@ genre_artist_stats AS (
         AND artist_name IS NOT NULL
         AND TRIM(artist_name) != ''
         AND LENGTH(TRIM(artist_name)) > 2
-    GROUP BY normalized_genre, 
-        CASE 
+    GROUP BY normalized_genre,
+        CASE
             WHEN LOWER(TRIM(artist_name)) = 'babymetal' THEN 'BABYMETAL'
             WHEN LOWER(TRIM(artist_name)) = 'one ok rock' THEN 'ONE OK ROCK'
             WHEN LOWER(TRIM(artist_name)) = 'yui' THEN 'YUI'

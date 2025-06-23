@@ -1,0 +1,72 @@
+# Streamlit ignore file - reduces file watching overhead
+# This helps prevent "inotify watch limit reached" errors
+
+# Large directories that don't need watching
+dags/
+data/
+backups/
+logs/
+test/
+doc/
+llm_enrichment/
+data_warehouse/
+data_pipeline/
+db_scripts/
+scripts/
+supabase_import/
+supabase_import_clean/
+supabase_import_clean_fixed/
+
+# Hidden directories
+.git/
+__pycache__/
+.pytest_cache/
+.vscode/
+
+# Large files
+*.tar.gz
+*.sql
+*.log
+*.json
+
+# Build files
+*.pyc
+*.pyo
+*.pyd
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Environment files
+.env
+.venv/
+env/
+venv/
+
+# Secrets and credentials
+.streamlit/secrets.toml
+secrets.toml
+
+# Database files
+*.db
+*.sqlite3
+
+# Poetry
+poetry.lock
+
+# Docker
+Dockerfile*
+docker-compose*

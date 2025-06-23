@@ -28,8 +28,8 @@ load_dotenv()
 # Updated environment variables to match your setup
 PG_USER = os.getenv("WAREHOUSE_USER")
 PG_PW = os.getenv("WAREHOUSE_PASSWORD")
-PG_HOST = "localhost"
-PG_PORT = "5434"
+PG_HOST = os.getenv("WAREHOUSE_HOST", "localhost")
+PG_PORT = os.getenv("WAREHOUSE_PORT", "5432")
 PG_DB = os.getenv("WAREHOUSE_DB")
 
 DATABASE_URL = f"postgresql+psycopg2://{PG_USER}:{PG_PW}@{PG_HOST}:{PG_PORT}/{PG_DB}"
@@ -463,11 +463,11 @@ def load_trend_summary_json_to_tables(engine, file_path, target_schema, truncate
             genres_data = []
             # Dictionary to aggregate duplicate genres
             genre_aggregation = {}
-            
+
             for genre in top_genres:
                 original_name = genre.get("name")
                 normalized_name = normalize_genre_name(original_name)
-                
+
                 # If we've seen this normalized genre before, aggregate the data
                 if normalized_name in genre_aggregation:
                     existing = genre_aggregation[normalized_name]
@@ -491,12 +491,12 @@ def load_trend_summary_json_to_tables(engine, file_path, target_schema, truncate
                         "max_popularity": genre.get("popularity_score", 0),
                         "source_file": source_file
                     }
-            
+
             # Convert aggregated data to list, removing helper fields
             for genre_name, genre_data in genre_aggregation.items():
                 genre_data.pop("max_popularity", None)  # Remove helper field
                 genres_data.append(genre_data)
-            
+
             genres_df = pd.DataFrame(genres_data)
             genres_df.to_sql("trend_summary_top_genres", engine, schema=target_schema, if_exists="append", index=False)
             logging.info(f"Loaded {len(genres_data)} normalized top genres into {target_schema}.trend_summary_top_genres")
@@ -715,14 +715,14 @@ def normalize_genre_name(genre_name):
     """
     if not genre_name or not isinstance(genre_name, str):
         return genre_name
-    
+
     genre_lower = genre_name.lower().strip()
-    
+
     # Apply normalization mapping
     genre_mappings = {
         # Pop variations
         'pop': 'J-Pop', 'j-pop': 'J-Pop', 'jpop': 'J-Pop', 'j pop': 'J-Pop',
-        # Rock variations  
+        # Rock variations
         'rock': 'J-Rock', 'j-rock': 'J-Rock', 'jrock': 'J-Rock', 'j rock': 'J-Rock',
         # Metal variations
         'metal': 'Metal', 'j-metal': 'Metal', 'jmetal': 'Metal',
@@ -772,11 +772,11 @@ def normalize_genre_name(genre_name):
         'new wave': 'New Wave', 'newwave': 'New Wave',
         'shoegaze': 'Shoegaze', 'shoe gaze': 'Shoegaze',
     }
-    
+
     # Check if we have a specific mapping
     if genre_lower in genre_mappings:
         return genre_mappings[genre_lower]
-    
+
     # Default: Use proper title case
     return genre_name.title()
 

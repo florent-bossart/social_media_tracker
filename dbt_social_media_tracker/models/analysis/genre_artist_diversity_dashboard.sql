@@ -3,7 +3,7 @@
 WITH normalized_genre_data AS (
     SELECT
         -- Apply the same normalization logic as genre_trends_dashboard
-        CASE 
+        CASE
             WHEN LOWER(genre) IN ('pop', 'j-pop', 'jpop', 'j pop') THEN 'J-Pop'
             WHEN LOWER(genre) IN ('rock', 'j-rock', 'jrock', 'j rock') THEN 'J-Rock'
             WHEN LOWER(genre) IN ('metal', 'j-metal', 'jmetal') THEN 'Metal'

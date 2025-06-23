@@ -33,3 +33,30 @@ with DAG(
         ],
         mount_tmp_dir=False,
     )
+
+    # Specific task to ensure dashboard views are created
+    dbt_run_dashboard_views = DockerOperator(
+        task_id="dbt_run_dashboard_views",
+        image="ghcr.io/dbt-labs/dbt-postgres:latest",
+        api_version="auto",
+        auto_remove='success',
+        command="run --select artist_trends_enriched_dashboard author_influence_dashboard url_analysis_dashboard",
+        docker_url="unix://var/run/docker.sock",
+        network_mode="social_media_tracker_default",
+        working_dir="/app/airflow/dbt_social_media_tracker",
+        environment={
+            "DBT_DB_PASSWORD": os.environ.get("DBT_DB_PASSWORD"),
+            "DBT_PROFILES_DIR": "/app/airflow/dbt_social_media_tracker",
+        },
+        mounts=[
+            Mount(
+                source="/home/florent.bossart/code/florent-bossart/social_media_tracker/dbt_social_media_tracker",  # host path
+                target="/app/airflow/dbt_social_media_tracker",  # container path (must match above)
+                type="bind"
+            )
+        ],
+        mount_tmp_dir=False,
+    )
+
+    # Set task dependencies - run dashboard views after main dbt run
+    dbt_run >> dbt_run_dashboard_views

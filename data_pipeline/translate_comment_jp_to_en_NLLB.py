@@ -37,6 +37,13 @@ def translate(texts, tokenizer, model, batch_size=4, src_lang="jpn_Jpan", tgt_la
 
 def process_file(input_path, column_to_translate, output_column, output_dir, tokenizer, model):
     df = pd.read_csv(input_path)
+
+    # Standardize column names for entity extraction compatibility
+    # Rename text_clean -> comment_text if needed
+    if 'text_clean' in df.columns and 'comment_text' not in df.columns:
+        df = df.rename(columns={'text_clean': 'comment_text'})
+        print("Renamed 'text_clean' to 'comment_text' for compatibility")
+
     jp_mask = df[column_to_translate].apply(lambda x: bool(str(x).strip()) and maybe_is_japanese(x))
     indices = df.index[jp_mask].tolist()
     texts_to_translate = df.loc[indices, column_to_translate].astype(str).tolist()
@@ -59,6 +66,7 @@ def process_file(input_path, column_to_translate, output_column, output_dir, tok
     output_path = os.path.join(output_dir, filename)
     df.to_csv(output_path, index=False)
     print(f"NLLB translated file saved to: {output_path}")
+    print(f"Final columns: {list(df.columns)}")
 
 if __name__ == "__main__":
     input_folder = "data/intermediate"

@@ -6,7 +6,7 @@ import requests
 API_URL = "http://smt_api:8000/update_youtube_comments_from_fetched_rotating"
 
 def trigger_update_youtube_comments_rotating_api():
-    resp = requests.post(API_URL, timeout=1000)  # long timeout as YouTube API can take time
+    resp = requests.post(API_URL, timeout=300)  # Reduced timeout to 5 minutes (300 seconds)
     resp.raise_for_status()
     return resp.json()
 

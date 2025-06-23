@@ -21,9 +21,10 @@ class MockSentimentAnalyzer:
     """Mock Sentiment Analysis class for pipeline testing"""
 
     def __init__(self):
-        # Create output directory
-        self.output_dir = "/home/florent.bossart/code/florent-bossart/social_media_tracker/data/intermediate/sentiment_analysis"
-        Path(self.output_dir).mkdir(parents=True, exist_ok=True)
+        # Create output directory using relative path
+        project_root = Path(__file__).parent.parent.parent
+        self.output_dir = project_root / "data" / "intermediate" / "sentiment_analysis"
+        self.output_dir.mkdir(parents=True, exist_ok=True)
 
         # Sentiment keywords for rule-based analysis
         self.positive_words = [

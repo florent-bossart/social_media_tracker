@@ -1,4 +1,10 @@
-# 📊 Project: Social Media Sentiment Tracker for Global Trends
+# 📊 Project: Japanese Music trends Detection
+
+## 📝 Project Description
+
+Automated data pipeline that tracks trending artists on social media (like youtube and Reddit), analyzes the sentiment of public posts in real-time on a Daily basis, and visualizes evolving public opinions on different themes (e.g., tech innovations, climate change, major events).
+The pipeline is orchestrated using **Airflow**, and data transformation is handled by **DBT**, ensuring clean and analyzable datasets. The project will use cost-free or low-cost data sources and open-source tools to avoid cloud expenses.
+
 
 ## How to use :
 
@@ -12,29 +18,93 @@ Install ollama models : ollama pull llama3:7b
 
 Run docker compose build, then docker compose up. Then you will be able to manually trigger each step from Airflow.
 !!! The LLM part takes a lot of processing, you can use different machines to run the LLM part, you will need to set up a tunnel from your execution environment to the processing machine, and install Ollama on the processing machine !!!
+How to run :
+Daily - Run DAGS:
+- fetch_reddit_daily_data             => Get reddit data usingthe API
+- fetch_youtube_daily_data            => Get youtube data using the API
+- Load_all_social_media_raw_today     => Load youtube and reddit data in the raw schema
+- llm_complete_pipeline_full          => all the LLM part + dbt
+For LLM step by step :
+- dbt_run                             => clean the data and create intermediary tables
+- cleaned_data_extraction             => extract intermediary data for LLM processing
+- llm_step_1_translate_youtube_optimized => translate Japanese youtube comments into English. Optimized version have special memory config
+- llm_step2_entity_youtube            => extract entities from youtube
+- llm_step3_entity_reddit             => extract entities from reddit
+- llm_step4_sentiment_youtube         => extract sentiment from youtube
+- llm_step5_sentiment_reddit          => extract sentiment from reddit
+- llm_step6_trend_combined            => generate trends files
+- llm_step7_summarization             => generate summarization
+- step8_load_analytics_simple         => load llm generated data into the analytics schema
+- dbt_run                             => generate the views for the dashboard
+
+
+Other optional dags :
+- update_youtube_comments_rotating    => query youtube API on already fetched videos, to get comment updates - if you still have not reached youtube quota
+- load_all_youtube_comment_updates    => load these new comments in the raw schema
+
+Some other dags to load/extract files separatly.
+
+
+## Database Backup & Restore
+
+The project includes comprehensive database backup and restore functionality for easy project forking and data sharing.
+
+### Creating a Backup
+
+```bash
+# Create a compressed backup of the entire database
+./scripts/backup_database.sh
+```
+
+This creates a `.tar.gz` file in the `backups/` directory containing:
+- Complete SQL dump of all schemas (raw, staging, analytics)
+- Backup metadata and restore instructions
+- Sample data for Japanese music trend analysis
+
+### Restoring a Backup
+
+```bash
+# Restore the latest backup (auto-detects Docker/local setup)
+./scripts/restore_database.sh
+
+# Restore a specific backup file
+./scripts/restore_database.sh backup_20240622_120000.tar.gz
+
+# Force restore without prompts (useful for automation)
+./scripts/restore_database.sh --force
+
+# Get help with all options
+./scripts/restore_database.sh --help
+```
+
+The restore script automatically:
+- Detects whether you're using Docker or local PostgreSQL
+- Extracts and validates the backup
+- Safely drops and recreates the database
+- Verifies the restore was successful
+
+Perfect for getting started with sample data when forking this project!
+
+
 
 ## PROJECT STATUS :
 
 [NEXT]
-Improve the code base
-Add logging
-Better error handling
-Unit tests
-Refactor duplicated code
+More logging
+More error handling
+More Unit tests
 More doc
 
+--
 
-## 📝 Project Description
 
-Build an automated data pipeline that tracks trending hashtags and topics on social media (like Twitter/X and Reddit), analyzes the sentiment of public posts in real-time or near-real-time, and visualizes evolving public opinions on different themes (e.g., tech innovations, climate change, major events).
-The pipeline will be orchestrated using **Airflow**, and data transformation will be handled by **DBT**, ensuring clean and analyzable datasets. The project will use cost-free or low-cost data sources and open-source tools to avoid cloud expenses.
 
 ### Key Highlights:
 - ✅ Data ingestion from APIs
 - ✅ Data orchestration with Airflow
 - ✅ Data transformation and modeling with DBT
 - ✅ Natural Language Processing (Sentiment Analysis)
-- ✅ Interactive dashboard for stakeholders
+- ✅ Interactive dashboard for stakeholders with Streamlit
 
 ---
 
@@ -68,7 +138,7 @@ The pipeline will be orchestrated using **Airflow**, and data transformation wil
 
 ### 4. Models
 - Open-source libraries:
-  - Translation JP to EN (youtube only) => MARIANMT
+  - Translation JP to EN (youtube only) => NLLB200
   - Entity Extraction => OLLAMA
   - Sentiment Analysis => OLLAMA
   - Trend detection => OLLAMA
@@ -76,7 +146,7 @@ The pipeline will be orchestrated using **Airflow**, and data transformation wil
 
 ### 5. Workflow Orchestration (Airflow)
 - Automate the pipeline:
-  - Extract → Load → Transform (DBT) → Transform (Python/LLM) → Load  → Analyze
+  - Extract → Load → Transform (DBT) → Transform (Python/LLM) → Load  → Transform (DBT) →  Analyze
   - Schedule  daily
 
 ### 6. Visualization
@@ -86,41 +156,3 @@ The pipeline will be orchestrated using **Airflow**, and data transformation wil
   - Positive/negative sentiment spikes
 - Tools:
   - Streamlit (Python-friendly)
-
-
-### 7. Optional Enhancements (Bonus 🚀)
-- **Trend Detection:** Simple anomaly detection for spikes.
-- **Dockerization:** Containerize the entire project for portability.
-
----
-
-## 📅 Timeline Suggestion
-
-| Step | Task |
-|------|------|
-| **1** | Set up Airflow, Postgres, DBT, connect APIs |
-| **2** | Build ETL pipeline, store raw data, basic transformations |
-| **3** | Implement sentiment analysis, create DBT models |
-| **4** | Build dashboard, test end-to-end automation |
-| **5** | Polish project, add optional enhancements, write documentation |
-| **6** | Prepare presentation and portfolio showcase |
-
----
-
-## ✅ Project Outcome
-
-- 🚀 End-to-end automated data pipeline (Airflow + DBT + APIs)
-- 🔍 Clean, transformed datasets with sentiment scores
-- 📊 Visual dashboard for non-technical stakeholders
-- 🛎️ Optional: Alerts and trend detection
-- 💼 Resume-ready project & strong interview case study!
-
----
-
-## 🧩 Optional Next Steps
-
-- [x] Define target hashtags/topics
-- [ ] Set up GitHub repository and CI/CD (GitHub Actions)
-- [ ] Prepare project demo video or presentation slides
-- [x] (Optional) Add Docker Compose for full project deployment
-- [ ] Write blog post or LinkedIn article about the project 🚀

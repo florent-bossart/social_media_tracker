@@ -2,13 +2,16 @@ from airflow import DAG
 from airflow.operators.bash import BashOperator
 from datetime import datetime
 
+
+# This DAG extracts cleaned Reddit and YouTube comments - only - to intermediate CSV files.
+
 default_args = {
     "owner": "airflow",
     "retries": 1,
 }
 
 with DAG(
-    dag_id="extract_comments_to_csv",
+    dag_id="opt_extract_comments_to_csv",
     default_args=default_args,
     description="Extracts cleaned Reddit and YouTube comments to intermediate CSV files",
     schedule_interval=None,  # Set your desired schedule, e.g. '@daily'
