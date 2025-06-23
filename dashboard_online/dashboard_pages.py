@@ -191,8 +191,7 @@ def genre_analysis_page(genre_data, genre_artist_diversity_data, artists_without
 
             # Genre rankings - limit to 5 genres to match radar chart height
             for i, (_, genre) in enumerate(genre_data.head(5).iterrows()):
-                trend_strength_raw = genre.get('trend_strength', 0.5)
-                progress_value = float(trend_strength_raw) if trend_strength_raw is not None else 0.5
+                progress_value = float(genre['trend_strength'])
                 st.write(f"**{genre['genre']}**")
                 st.progress(min(progress_value, 1.0))  # Cap at 1.0 for progress bar
                 col_a, col_b, col_c = st.columns(3)
@@ -1248,8 +1247,7 @@ def video_context_page(video_context_data):
                     st.markdown(f"🎤 **{mentions}**", help=f"{mentions} artist mentions found in comments")
 
                 with col3:
-                    percentage_raw = video.get('artist_mention_percentage', 0.0)
-                    percentage = float(percentage_raw) if percentage_raw is not None else 0.0
+                    percentage = float(video['artist_mention_percentage'])
                     st.markdown(f"📊 **{percentage:.1f}%**", help=f"{percentage:.1f}% of comments mention artists")
 
                 with col4:
