@@ -1,17 +1,41 @@
 # Streamlit Cloud Requirements
 # This file lists all Python packages needed for the online dashboard
 
-streamlit>=1.28.0
-pandas>=2.0.0
+# Core frameworks
+streamlit>=1.45.0
+pandas==1.5.3
 plotly>=5.15.0
+numpy<1.27
+sqlalchemy>=1.4.36,<2.0
+
+# Database
 psycopg2-binary>=2.9.0
-sqlalchemy>=2.0.0
+
+# Utilities
 python-dotenv>=1.0.0
 requests>=2.31.0
 beautifulsoup4>=4.12.0
+
+# Visualization
 wordcloud>=1.9.0
 pillow>=10.0.0
-numpy>=1.24.0
 seaborn>=0.12.0
 matplotlib>=3.7.0
+
+# Data validation
 pydantic>=2.0.0
+
+# NLP and AI (optional for enhanced features)
+transformers>=4.52.0
+sentence-transformers>=4.1.0
+torch>=2.7.0
+sentencepiece>=0.2.0
+
+# Japanese language processing (optional)
+spacy>=3.8.0
+ginza>=5.2.0
+ja-ginza>=5.2.0
+sacremoses>=0.1.1
+
+# System monitoring
+psutil>=7.0.0

@@ -47,6 +47,12 @@ services:
       - WAREHOUSE_PASSWORD=${WAREHOUSE_PASSWORD}
       - DBT_DB_PASSWORD=${DBT_DB_PASSWORD}
       - OLLAMA_HOST=${OLLAMA_HOST}
+      # Supabase connection variables
+      - ONLINE_DB_HOST=${ONLINE_DB_HOST}
+      - ONLINE_DB_PORT=${ONLINE_DB_PORT}
+      - ONLINE_DB_NAME=${ONLINE_DB_NAME}
+      - ONLINE_DB_USER=${ONLINE_DB_USER}
+      - ONLINE_DB_PASSWORD=${ONLINE_DB_PASSWORD}
       # Memory optimization environment variables - removed offline settings to allow model downloads
       - PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:256
       - MALLOC_ARENA_MAX=1
@@ -92,6 +98,12 @@ services:
       - WAREHOUSE_PASSWORD=${WAREHOUSE_PASSWORD}
       - DBT_DB_PASSWORD=${DBT_DB_PASSWORD}
       - OLLAMA_HOST=${OLLAMA_HOST}
+      # Supabase connection variables
+      - ONLINE_DB_HOST=${ONLINE_DB_HOST}
+      - ONLINE_DB_PORT=${ONLINE_DB_PORT}
+      - ONLINE_DB_NAME=${ONLINE_DB_NAME}
+      - ONLINE_DB_USER=${ONLINE_DB_USER}
+      - ONLINE_DB_PASSWORD=${ONLINE_DB_PASSWORD}
     volumes:
       - ./dags:/app/airflow/dags
       - ./data:/app/airflow/data
@@ -143,6 +155,12 @@ services:
     environment:
       DBT_DB_PASSWORD: ${DBT_DB_PASSWORD}
       DBT_PROFILES_DIR: /usr/app/dbt_social_media_tracker
+      # Supabase connection variables for DBT
+      ONLINE_DB_HOST: ${ONLINE_DB_HOST}
+      ONLINE_DB_PORT: ${ONLINE_DB_PORT}
+      ONLINE_DB_NAME: ${ONLINE_DB_NAME}
+      ONLINE_DB_USER: ${ONLINE_DB_USER}
+      ONLINE_DB_PASSWORD: ${ONLINE_DB_PASSWORD}
     volumes:
       - /home/florent.bossart/code/florent-bossart/social_media_tracker/dbt_social_media_tracker:/usr/app/dbt_social_media_tracker
     working_dir: /usr/app/dbt_social_media_tracker

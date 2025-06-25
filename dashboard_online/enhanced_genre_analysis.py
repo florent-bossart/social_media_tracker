@@ -28,21 +28,42 @@ def enhanced_genre_analysis_page():
         """
     )
 
-    # Load genre data
+    # Load genre data with proper error handling
     with st.spinner("Loading genre analysis data..."):
-        genre_data = DataManager.get_genre_trends()
-        genre_artist_diversity_data = DataManager.get_genre_artists()
+        try:
+            genre_data = DataManager.get_genre_trends()
+        except Exception as e:
+            st.error(f"Error loading genre data: {str(e)}")
+            genre_data = pd.DataFrame()
+
+        try:
+            genre_artist_diversity_data = DataManager.get_genre_artists()
+        except Exception as e:
+            st.warning(f"Could not load detailed genre-artist data: {str(e)}")
+            genre_artist_diversity_data = pd.DataFrame()
+
         try:
             artists_without_genre_count = DataManager.get_artists_without_genre_count()
-        except:
+        except Exception as e:
+            # This is expected to fail in demo/Docker environments
             artists_without_genre_count = None
 
     if genre_data.empty:
         StandardComponents.empty_state(
             "No Genre Data Available",
-            "Genre analysis data is currently being processed. Please check back later.",
+            "Genre analysis data is currently being processed or no database connection is available. Please check back later.",
             "🎶"
         )
+
+        # Show demo content for Docker/demo environments
+        st.subheader("🎵 Demo Content")
+        st.info("This page would normally show genre analysis based on your data.")
+
+        demo_genres = ["J-Pop", "J-Rock", "Visual Kei", "City Pop", "Enka", "Kawaii Metal"]
+        st.write("**Popular Japanese Music Genres:**")
+        for genre in demo_genres:
+            st.write(f"- {genre}")
+
         return
 
     # Genre Performance Overview
@@ -65,7 +86,7 @@ def enhanced_genre_analysis_page():
                 st.write(f"**{genre['genre']}**")
                 col_a, col_b, col_c = st.columns(3)
                 with col_a:
-                    st.caption(f"Mentions: {int(genre['mention_count'])}")
+                    st.caption(f"Mentions: {DataManager.safe_convert_numeric(genre['mention_count'])}")
                 with col_b:
                     st.caption(f"Sentiment: {genre['sentiment_score']:.1f}")
                 with col_c:
@@ -89,23 +110,15 @@ def enhanced_genre_analysis_page():
     st.markdown("---")
     st.subheader("🎯 Genre Selection & Artist Discovery")
 
-    # Genre selector with session state
+    # Genre selector
     if not genre_data.empty:
         # Create a genre list with metrics
         genre_options = ["Select a genre..."] + genre_data['genre'].tolist()
-        
-        if 'selected_genre' not in st.session_state:
-            st.session_state.selected_genre = "Select a genre..."
-            
         selected_genre = st.selectbox(
             "Choose a genre to explore artists:",
             genre_options,
-            index=genre_options.index(st.session_state.selected_genre) if st.session_state.selected_genre in genre_options else 0,
-            help="Select any genre to see all artists associated with it",
-            key="genre_selector"
+            help="Select any genre to see all artists associated with it"
         )
-        
-        st.session_state.selected_genre = selected_genre
 
     # Genre-specific artist analysis
     if selected_genre and selected_genre != "Select a genre...":
@@ -117,24 +130,10 @@ def enhanced_genre_analysis_page():
             genre_artists = DataManager.get_genre_artists(selected_genre)
 
         if not genre_artists.empty:
-            # Create view selector for different views
-            genre_view_key = f"genre_view_{selected_genre}"
-            if genre_view_key not in st.session_state:
-                st.session_state[genre_view_key] = "📊 Artist Overview"
-                
-            genre_view_options = ["📊 Artist Overview", "📈 Detailed Analysis", "💾 Export Data"]
-            genre_view = st.selectbox(
-                "Select view:",
-                genre_view_options,
-                index=genre_view_options.index(st.session_state[genre_view_key]),
-                key=f"genre_view_select_{selected_genre}"
-            )
-            
-            st.session_state[genre_view_key] = genre_view
-            
-            st.markdown("---")
+            # Create tabs for different views
+            tab1, tab2, tab3 = st.tabs(["📊 Artist Overview", "📈 Detailed Analysis", "💾 Export Data"])
 
-            if genre_view == "📊 Artist Overview":
+            with tab1:
                 # Artist metrics overview
                 col1, col2, col3 = st.columns(3)
                 with col1:
@@ -164,36 +163,27 @@ def enhanced_genre_analysis_page():
                 fig.update_layout(height=600, yaxis={'categoryorder': 'total ascending'})
                 st.plotly_chart(fig, use_container_width=True)
 
-            elif genre_view == "📈 Detailed Analysis":
+            with tab2:
                 # Detailed artist analysis
                 st.subheader("🔍 Detailed Artist Analysis")
 
                 # Artist selection for detailed view
                 artist_options = ["Select an artist..."] + genre_artists['artist_name'].tolist()
-                
-                artist_select_key = f"selected_artist_{selected_genre}"
-                if artist_select_key not in st.session_state:
-                    st.session_state[artist_select_key] = "Select an artist..."
-                    
                 selected_artist = st.selectbox(
                     "Choose an artist for detailed analysis:",
-                    artist_options,
-                    index=artist_options.index(st.session_state[artist_select_key]) if st.session_state[artist_select_key] in artist_options else 0,
-                    key=f"artist_select_{selected_genre}"
+                    artist_options
                 )
-                
-                st.session_state[artist_select_key] = selected_artist
 
                 if selected_artist and selected_artist != "Select an artist...":
                     artist_data = genre_artists[genre_artists['artist_name'] == selected_artist].iloc[0]
 
                     col1, col2 = st.columns(2)
                     with col1:
-                        st.metric("Mentions in Genre", int(artist_data['mention_count']))
+                        st.metric("Mentions in Genre", DataManager.safe_convert_numeric(artist_data['mention_count']))
                         st.metric("Sentiment Score", f"{artist_data['sentiment_score']:.1f}/10")
                     with col2:
-                        st.metric("Platform Count", int(artist_data['platform_count']))
-                        st.metric("Genre Rank", f"#{int(artist_data['artist_rank'])}")
+                        st.metric("Platform Count", DataManager.safe_convert_numeric(artist_data['platform_count']))
+                        st.metric("Genre Rank", f"#{DataManager.safe_convert_numeric(artist_data['artist_rank'])}")
 
                 # Show all artists table with search
                 st.subheader("📋 All Artists in Genre")
@@ -213,25 +203,17 @@ def enhanced_genre_analysis_page():
                     hide_index=True
                 )
 
-            elif genre_view == "💾 Export Data":
+            with tab3:
                 # Export functionality
                 st.subheader("💾 Export Artist Data")
                 st.write(f"Export complete artist list for **{selected_genre}** genre")
 
-                # Show export options with session state
-                export_format_key = f"export_format_{selected_genre}"
-                if export_format_key not in st.session_state:
-                    st.session_state[export_format_key] = "CSV"
-                    
+                # Show export options
                 export_format = st.radio(
                     "Choose export format:",
                     ["CSV", "JSON"],
-                    index=0 if st.session_state[export_format_key] == "CSV" else 1,
-                    horizontal=True,
-                    key=f"export_radio_{selected_genre}"
+                    horizontal=True
                 )
-                
-                st.session_state[export_format_key] = export_format
 
                 if export_format == "CSV":
                     csv_data = genre_artists.to_csv(index=False)
@@ -293,7 +275,7 @@ def enhanced_genre_analysis_page():
             st.metric(
                 "Most Diverse Genre",
                 max_diversity_genre['genre'],
-                f"{int(max_diversity_genre['artist_count'])} artists"
+                f"{DataManager.safe_convert_numeric(max_diversity_genre['artist_count'])} artists"
             )
         with col2:
             avg_diversity = genre_summary['artist_count'].mean()

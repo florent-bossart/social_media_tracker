@@ -110,7 +110,7 @@ def artist_trends_page(artist_data, platform_data):
                 with cols[i % 4]:
                     st.metric(
                         label=f"🎤 {artist_name}",
-                        value=f"{int(artist_info['mention_count'])} mentions",
+                        value=f"{DataManager.safe_convert_numeric(artist_info['mention_count'])} mentions",
                         delta=f"Sentiment: {artist_info['sentiment_score']:.1f}/10"
                     )
 

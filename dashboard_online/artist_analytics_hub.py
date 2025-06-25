@@ -5,46 +5,10 @@ Combines Artist Trends, Sentiment Analysis, Content Discovery, and Author Influe
 
 import streamlit as st
 import pandas as pd
-import plotly.express as px
 from ui_library import (
     StandardComponents, StandardCharts, PageLayouts, UITheme
 )
 from data_manager import DataManager
-
-# Cached functions for artist analytics performance
-@st.cache_data(ttl=300)
-def calculate_trending_metrics(trends_df):
-    """Calculate trending artist metrics with caching"""
-    if trends_df.empty:
-        return {}
-    
-    return {
-        "total_artists": len(trends_df),
-        "avg_sentiment": trends_df['sentiment_score'].mean() if 'sentiment_score' in trends_df.columns else 0,
-        "top_mentions": trends_df['mention_count'].max() if 'mention_count' in trends_df.columns else 0,
-        "total_mentions": trends_df['mention_count'].sum() if 'mention_count' in trends_df.columns else 0
-    }
-
-@st.cache_data(ttl=300)
-def generate_artist_comparison_chart(artist_data, selected_artists):
-    """Generate artist comparison chart with caching"""
-    if artist_data.empty or not selected_artists:
-        return None
-    
-    filtered_data = artist_data[artist_data['artist_name'].isin(selected_artists)]
-    if filtered_data.empty:
-        return None
-    
-    fig = px.bar(
-        filtered_data,
-        x='artist_name',
-        y='mention_count',
-        color='sentiment_score',
-        title="Artist Comparison: Mentions vs Sentiment",
-        hover_data=['platform_count']
-    )
-    fig.update_layout(height=400)
-    return fig
 
 def artist_analytics_hub_page():
     """Unified artist analytics page with multiple analysis views"""
@@ -97,16 +61,17 @@ def trending_artists_tab(trends_df: pd.DataFrame):
         )
         return
 
-    # Key metrics with caching
+    # Key metrics
     if not trends_df.empty:
-        with st.spinner("Calculating trending metrics..."):
-            metrics_data = calculate_trending_metrics(trends_df)
-        
+        total_artists = len(trends_df)
+        avg_sentiment = trends_df['sentiment_score'].mean() if 'sentiment_score' in trends_df.columns else 0
+        top_mentions = trends_df['mention_count'].max() if 'mention_count' in trends_df.columns else 0
+
         metrics = {
-            "Total Artists": f"{metrics_data.get('total_artists', 0):,}",
-            "Avg Sentiment": f"{metrics_data.get('avg_sentiment', 0):.1f}/10",
-            "Top Mentions": f"{metrics_data.get('top_mentions', 0):,}",
-            "Total Mentions": f"{metrics_data.get('total_mentions', 0):,}"
+            "Total Artists": f"{total_artists:,}",
+            "Avg Sentiment": f"{avg_sentiment:.1f}/10",
+            "Top Mentions": f"{top_mentions:,}",
+            "Active Platforms": "Reddit + YouTube"
         }
         StandardComponents.metric_cards(metrics)
 

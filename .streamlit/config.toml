@@ -5,10 +5,13 @@
 # dataFrameSerialization option has been removed in newer Streamlit versions
 
 [server]
-# Server configuration
+# Server configuration for Docker/Hugging Face deployment
+port = 7860
+address = "0.0.0.0"
 headless = true
 enableCORS = false
 enableXsrfProtection = false
+maxUploadSize = 200
 
 [browser]
 # Browser configuration

@@ -12,7 +12,7 @@ def trigger_reddit_daily_api():
 with DAG(
     "fetch_reddit_daily_data",
     start_date=datetime(2024, 5, 1),
-    schedule_interval=None,
+    schedule_interval="0 1 * * *",
     catchup=False,
     description="Triggers the Reddit daily fetch API",
     tags=["reddit", "daily", "fetch", "api"]
