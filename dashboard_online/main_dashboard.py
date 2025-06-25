@@ -1,16 +1,4 @@
-"""
-Main Dashboard for Japanese Music Trends.
-Orche# Simplified cache management
-if st.sidebar.button("🗑️ Clear Cache & Refresh"):
-    # Clear cache and session state
-    st.cache_data.clear()
-    # Clear only data-related session state, keep navigation state
-    keys_to_clear = [k for k in st.session_state.keys() if k.startswith(('dashboard_data', 'data_loaded'))]
-    for key in keys_to_clear:
-        del st.session_state[key]
-    st.rerun()all components and handles the main application flow.
-IMPROVED VERSION with consolidated pages and standardized components.
-"""
+# main_dashboard.py
 
 import streamlit as st
 import pandas as pd
@@ -24,151 +12,143 @@ from artist_analytics_hub import artist_analytics_hub_page
 from ai_intelligence_center import ai_intelligence_center_page
 from enhanced_genre_analysis import enhanced_genre_analysis_page
 from dashboard_pages import (
-    overview_page, wordcloud_page, platform_insights_page, get_lucky_page
+    overview_page, artist_trends_page, wordcloud_page, platform_insights_page, get_lucky_page,
+    sentiment_deep_dive_page, ai_trend_summary_page, ai_insights_page,
+    content_discovery_page, author_influence_page, video_context_page
 )
 
-# Configure Streamlit page
-st.set_page_config(
-    page_title="🎌 Japanese Music Trends Dashboard",
-    page_icon="🎵",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+def run_dashboard():
+    # Page config is set in streamlit_app_robust.py to avoid conflicts
+    apply_global_styles()
+    create_dashboard_header()
 
-# Apply global styling and create header
-apply_global_styles()
-create_dashboard_header()
-
-# Initialize session state for consistent user experience
-if 'initialized' not in st.session_state:
-    st.session_state.initialized = True
-    st.session_state.last_refresh = pd.Timestamp.now()
-
-# Create consolidated sidebar navigation
-page = Navigation.create_sidebar_nav()
-
-# Simplified debug info in sidebar (no rerun-triggering elements)
-with st.sidebar.expander("🔍 Debug Info", expanded=False):
-    st.write(f"Current page: {page}")
-    st.write(f"Data loaded: {'data_loaded' in st.session_state}")
-    if 'dashboard_data' in st.session_state:
-        st.write("Data keys:", list(st.session_state.dashboard_data.keys()))
-    
-    # Non-interactive refresh instructions
-    st.info("To refresh data: Use browser refresh (F5) or clear cache below")
-
-# Simplified cache management
-if st.sidebar.button("�️ Clear Cache & Refresh"):
-    # Clear cache and session state
-    st.cache_data.clear()
-    for key in list(st.session_state.keys()):
-        if key not in ['initialized']:  # Keep initialization state
-            del st.session_state[key]
-    st.rerun()
-
-# Load data with improved error handling
-@st.cache_data(ttl=300)  # Cache for 5 minutes
-def load_consolidated_data():
-    """Load all required data with improved error handling and consistency"""
-    try:
-        data = {}
-        
-        # Core data for overview and genre analysis
-        data['stats'] = DataManager.get_overall_stats() or {}
-        data['artist_data'] = DataManager.get_artist_trends()
-        if data['artist_data'].empty:
-            data['artist_data'] = pd.DataFrame(columns=['artist_name', 'mention_count', 'sentiment_score'])
-        
-        data['genre_data'] = DataManager.get_genre_trends()
-        if data['genre_data'].empty:
-            data['genre_data'] = pd.DataFrame(columns=['genre_name', 'mention_count', 'sentiment_score'])
-            
-        data['genre_artist_diversity_data'] = DataManager.get_genre_artist_diversity()
-        data['artists_without_genre_count'] = DataManager.get_artists_without_genre_count() or 0
-        data['platform_data'] = DataManager.get_platform_data()
-        data['temporal_data'] = DataManager.get_temporal_data()
-        data['wordcloud_data'] = DataManager.get_wordcloud_data()
-        data['video_context_data'] = DataManager.get_video_context_data()
-        
+    @st.cache_data
+    def load_consolidated_data():
+        data = {
+            'stats': {}, 'artist_data': pd.DataFrame(),
+            'genre_data': pd.DataFrame(), 'genre_artist_diversity_data': pd.DataFrame(),
+            'artists_without_genre_count': 0, 'platform_data': pd.DataFrame(),
+            'temporal_data': pd.DataFrame(), 'wordcloud_data': pd.DataFrame(),
+            'video_context_data': pd.DataFrame(), 'artist_sentiment_data': pd.DataFrame(),
+            'trend_summary_data': {}, 'insights_summary_data': {},
+            'enriched_artist_data': pd.DataFrame(), 'url_analysis_data': pd.DataFrame(),
+            'author_influence_data': pd.DataFrame()
+        }
+        try:
+            with st.spinner("Loading dashboard data..."):
+                stats = DataManager.get_overall_stats()
+                if not stats:
+                    st.info("🚀 Demo mode: no database connected.")
+                    return data
+                data['stats'] = stats
+                loaders = {
+                    'artist_data': DataManager.get_artist_trends,
+                    'genre_data': DataManager.get_genre_trends,
+                    'temporal_data': DataManager.get_temporal_data,
+                    'wordcloud_data': DataManager.get_wordcloud_data,
+                    'platform_data': DataManager.get_platform_data,
+                    'video_context_data': DataManager.get_video_context_data,
+                    'artist_sentiment_data': DataManager.get_artist_sentiment_data,
+                    'trend_summary_data': DataManager.get_trend_summary_data,
+                    'insights_summary_data': DataManager.get_insights_summary_data,
+                    'genre_artist_diversity_data': DataManager.get_genre_artist_diversity,
+                    'artists_without_genre_count': DataManager.get_artists_without_genre_count
+                }
+                for key, func in loaders.items():
+                    try:
+                        data[key] = func()
+                    except Exception as e:
+                        st.warning(f"{key} failed to load: {e}")
+                
+                # Load artist analytics data (contains enriched, url_analysis, author_influence)
+                try:
+                    artist_analytics = DataManager.get_artist_analytics_hub_data()
+                    data['enriched_artist_data'] = artist_analytics.get('enriched', pd.DataFrame())
+                    data['url_analysis_data'] = artist_analytics.get('url_analysis', pd.DataFrame())
+                    data['author_influence_data'] = artist_analytics.get('author_influence', pd.DataFrame())
+                except Exception as e:
+                    st.warning(f"Artist analytics data failed to load: {e}")
+                    
+        except Exception as e:
+            st.error(f"Failed to load data: {e}")
         return data
 
-    except Exception as e:
-        st.error(f"Error loading dashboard data: {str(e)}")
-        
-        # Return minimal fallback data to prevent blank screen
-        return {
-            'stats': {},
-            'artist_data': pd.DataFrame(columns=['artist_name', 'mention_count', 'sentiment_score']),
-            'genre_data': pd.DataFrame(columns=['genre_name', 'mention_count', 'sentiment_score']),
-            'genre_artist_diversity_data': pd.DataFrame(),
-            'artists_without_genre_count': 0,
-            'platform_data': pd.DataFrame(),
-            'temporal_data': pd.DataFrame(),
-            'wordcloud_data': pd.DataFrame(),
-            'video_context_data': pd.DataFrame()
-        }
+    if 'initialized' not in st.session_state:
+        st.session_state.initialized = True
+        st.session_state.last_refresh = pd.Timestamp.now()
+        st.session_state.data_loaded = False
 
-# Initialize and load data
-if 'dashboard_data' not in st.session_state:
-    with st.spinner("Loading dashboard data..."):
-        st.session_state.dashboard_data = load_consolidated_data()
+        # Clear cache on first load to ensure fresh data with column mapping fixes
+        st.cache_data.clear()
 
-data = st.session_state.dashboard_data
+    page = Navigation.create_sidebar_nav() or "🏠 Overview"
 
-# Page routing with immediate content display
-def render_page(page_name: str, data: dict):
-    """Render the selected page with error handling and immediate content"""
-    
-    # Always show page header first to prevent blank screen
-    st.markdown(f"## {page_name}")
-    
-    # Show loading placeholder immediately
-    placeholder = st.empty()
-    with placeholder.container():
-        st.info(f"Loading {page_name}...")
-    
+    if not st.session_state.get('data_loaded', False) or 'dashboard_data' not in st.session_state:
+        with st.spinner("Loading dashboard data for this session..."):
+            st.session_state.dashboard_data = load_consolidated_data()
+            st.session_state.data_loaded = True
+
+    data = st.session_state.dashboard_data
+
     try:
-        # Clear placeholder and render actual content
-        placeholder.empty()
-        
-        if page_name == "🏠 Overview":
-            overview_page(
-                data['stats'],
-                data['artist_data'],
-                data['temporal_data']
-            )
-        elif page_name == "🎤 Artist Analytics Hub":
-            artist_analytics_hub_page()
-        elif page_name == "🎶 Genre Analysis":
-            enhanced_genre_analysis_page()
-        elif page_name == "☁️ Word Cloud":
-            wordcloud_page(data['wordcloud_data'])
-        elif page_name == "📱 Platform Insights":
-            platform_insights_page(data['platform_data'], data['video_context_data'])
-        elif page_name == "🤖 AI Intelligence Center":
-            ai_intelligence_center_page()
-        elif page_name == "🎲 Get Lucky":
-            get_lucky_page()
-        else:
-            st.error(f"Unknown page: {page_name}")
-            st.info("Please select a valid page from the sidebar.")
+        with st.spinner(f"🔄 Switching to {page}..."):
+            if page == "🏠 Overview":
+                overview_page(data.get('stats', {}),
+                              data.get('artist_data', pd.DataFrame()),
+                              data.get('temporal_data', pd.DataFrame()))
+
+            elif page == "🎤 Artist Trends":
+                artist_trends_page(data.get('artist_data', pd.DataFrame()),
+                                   data.get('platform_data', pd.DataFrame()))
+
+            elif page == "🎤 Artist Analytics Hub":
+                artist_analytics_hub_page()
+
+            elif page == "🎶 Genre Analysis":
+                enhanced_genre_analysis_page()
+
+            elif page == "☁️ Word Cloud":
+                wordcloud_page(data.get('wordcloud_data', pd.DataFrame()))
+
+            elif page == "📱 Platform Insights":
+                platform_insights_page(
+                    data.get('platform_data', pd.DataFrame()),
+                    data.get('video_context_data', pd.DataFrame())
+                )
+                
+            elif page == "💭 Sentiment Deep Dive":
+                sentiment_deep_dive_page(data.get('artist_sentiment_data', pd.DataFrame()))
+                
+            elif page == "📈 AI Trend Summary":
+                ai_trend_summary_page(data.get('trend_summary_data', {}))
+                
+            elif page == "🔍 AI Insights":
+                ai_insights_page(data.get('insights_summary_data', {}))
+                
+            elif page == "🔗 Content Discovery":
+                content_discovery_page(data.get('enriched_artist_data', pd.DataFrame()),
+                                        data.get('url_analysis_data', pd.DataFrame()))
+                
+            elif page == "👥 Author Influence":
+                author_influence_page(data.get('author_influence_data', pd.DataFrame()))
+                
+            elif page == "🎬 Video Context":
+                video_context_page(data.get('video_context_data', pd.DataFrame()))
+
+            elif page == "🤖 AI Intelligence Center":
+                ai_intelligence_center_page()
+
+            elif page == "🎲 Get Lucky":
+                get_lucky_page()
+
+            else:
+                st.warning(f"Page '{page}' not found. Loading overview.")
+                overview_page(data.get('stats', {}),
+                              data.get('artist_data', pd.DataFrame()),
+                              data.get('temporal_data', pd.DataFrame()))
 
     except Exception as e:
-        # Clear placeholder on error
-        placeholder.empty()
-        st.error(f"Error rendering page '{page_name}': {str(e)}")
-        
-        # Show minimal fallback content
-        st.subheader("⚠️ Service Temporarily Unavailable")
-        st.info("There was an issue loading this page. Please try refreshing or contact support if the issue persists.")
-        
-        # Show debug info in expander
-        with st.expander("Debug Information"):
-            st.code(f"Error: {str(e)}")
-            st.code(f"Available data keys: {list(data.keys())}")
+        st.error(f"💥 Unexpected error in page routing: {str(e)}")
+        st.code(traceback.format_exc())
 
-# Route to the selected page
-render_page(page, data)
-
-# Add footer
-Navigation.page_footer()
+    Navigation.page_footer()

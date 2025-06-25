@@ -10,3 +10,14 @@ dbt_social_media_tracker:
       dbname: social_db
       schema: raw
       threads: 4
+
+    supabase:
+      type: postgres
+      host: aws-0-ap-northeast-1.pooler.supabase.com
+      user: postgres.swjvbxebxxfrrmmkdnyg
+      password: "{{ env_var('ONLINE_DB_PASSWORD') }}"
+      port: 5432
+      dbname: postgres
+      schema: raw
+      threads: 4
+      sslmode: require

@@ -12,6 +12,8 @@ from typing import Dict, Optional, Any, List
 class DataManager:
     """Centralized data management with consistent caching and transformations"""
 
+    # Static cache TTL for semi-static data (1 hour)
+    STATIC_TTL = 3600
     # Standard cache TTL for dynamic data (5 minutes) - not used directly
     DYNAMIC_TTL = 300
 
@@ -67,6 +69,23 @@ class DataManager:
                 df[col] = df[col].apply(DataManager.decode_url_field)
 
         return df
+
+    @staticmethod
+    def safe_convert_numeric(value, default=0):
+        """Safely convert value to numeric, handling 'None' strings and NaN values."""
+        if pd.isna(value) or value is None:
+            return default
+        if isinstance(value, str):
+            if value.lower() == 'none' or value.strip() == '':
+                return default
+            try:
+                return int(float(value))  # Convert via float first to handle decimal strings
+            except (ValueError, TypeError):
+                return default
+        try:
+            return int(value)
+        except (ValueError, TypeError):
+            return default
 
     # === CORE DATA FETCHING METHODS ===
 

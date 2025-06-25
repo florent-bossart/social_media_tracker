@@ -321,7 +321,7 @@ fi
 echo ""
 print_status "🎯 Next Steps:"
 echo "   1. Verify your .env file has correct database credentials"
-echo "   2. Start the application: docker-compose up"  
+echo "   2. Start the application: docker-compose up"
 echo "   3. Access Airflow at: http://localhost:8080"
 echo "   4. Access Dashboard at: http://localhost:8501"
 echo ""

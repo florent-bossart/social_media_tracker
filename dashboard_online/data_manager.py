@@ -16,6 +16,45 @@ class DataManager:
     DYNAMIC_TTL = 300
 
     @staticmethod
+    def safe_convert_numeric(value, default=0):
+        """Safely convert value to numeric, handling 'None' strings and NaN values."""
+        if pd.isna(value) or value is None:
+            return default
+        if isinstance(value, str):
+            if value.lower() == 'none' or value.strip() == '':
+                return default
+            try:
+                return int(float(value))  # Convert via float first to handle decimal strings
+            except (ValueError, TypeError):
+                return default
+        try:
+            return int(value)
+        except (ValueError, TypeError):
+            return default
+
+    @staticmethod
+    def clean_dataframe_numeric_columns(df, numeric_columns=None):
+        """Clean DataFrame numeric columns to handle 'None' strings and invalid values."""
+        if df.empty:
+            return df
+
+        df = df.copy()
+
+        # If no specific columns provided, try to identify numeric columns
+        if numeric_columns is None:
+            numeric_columns = []
+            for col in df.columns:
+                if any(keyword in col.lower() for keyword in ['count', 'rank', 'score', 'mentions', 'total', 'avg', 'mean']):
+                    numeric_columns.append(col)
+
+        # Clean the identified numeric columns
+        for col in numeric_columns:
+            if col in df.columns:
+                df[col] = df[col].apply(DataManager.safe_convert_numeric)
+
+        return df
+
+    @staticmethod
     def decode_url_field(text: str) -> str:
         """Decode URL-encoded text safely"""
         if pd.isna(text) or not isinstance(text, str):
@@ -73,30 +112,50 @@ class DataManager:
     @staticmethod
     @st.cache_data
     def get_artist_trends() -> pd.DataFrame:
-        """Fetch artist trends from DBT view (Babymetal adjustment already applied in DBT)"""
-        query = """
-        SELECT
-            artist_name,
-            mention_count,
-            sentiment_score,
-            trend_strength,
-            trend_direction,
-            engagement_level,
-            platform_count
-        FROM analytics.artist_trends_dashboard
-        WHERE artist_name IS NOT NULL AND artist_name != ''
-        ORDER BY mention_count DESC
-        LIMIT 100
-        """
-        result = fetch_data(query)
-        return DataManager.decode_artist_names(result)
+        """Fetch artist trends from DBT view with error handling"""
+        try:
+            query = """
+            SELECT
+                artist_name,
+                mention_count,
+                sentiment_score,
+                trend_strength,
+                trend_direction,
+                engagement_level,
+                platform_count
+            FROM analytics.artist_trends_dashboard
+            WHERE artist_name IS NOT NULL AND artist_name != ''
+            ORDER BY mention_count DESC
+            LIMIT 100
+            """
+            result = fetch_data(query)
+            return DataManager.decode_artist_names(result)
+        except Exception as e:
+            print(f"WARNING: Could not fetch artist trends: {str(e)}")  # Log to console
+            return pd.DataFrame()
 
     @staticmethod
     @st.cache_data
     def get_genre_trends() -> pd.DataFrame:
-        """Fetch genre trends from DBT view"""
-        query = "SELECT * FROM analytics.genre_trends_dashboard LIMIT 25"
-        return fetch_data(query)
+        """Fetch genre trends from DBT view with error handling"""
+        try:
+            query = "SELECT * FROM analytics.genre_trends_dashboard LIMIT 25"
+            result = fetch_data(query)
+
+            # Map column names to match visualization expectations
+            if not result.empty and 'genre_name' in result.columns:
+                result = result.rename(columns={'genre_name': 'genre'})
+
+                # Clean up None values and empty strings in genre column
+                if 'genre' in result.columns:
+                    result = result.dropna(subset=['genre'])
+                    result = result[result['genre'].str.strip() != '']
+                    result = result[result['genre'] != 'None']
+
+            return result
+        except Exception as e:
+            print(f"WARNING: Could not fetch genre trends: {str(e)}")  # Log to console
+            return pd.DataFrame()
 
     @staticmethod
     @st.cache_data
@@ -141,29 +200,79 @@ class DataManager:
     def get_platform_data() -> pd.DataFrame:
         """Fetch platform comparison data"""
         query = "SELECT * FROM analytics.platform_data_dashboard"
-        return fetch_data(query)
+        result = fetch_data(query)
+
+        # Map column names to match visualization expectations
+        if not result.empty:
+            column_mapping = {
+                'source_platform': 'platform',
+                'total_posts': 'total_mentions',
+                'avg_confidence': 'avg_sentiment'
+            }
+            result = result.rename(columns=column_mapping)
+
+        return result
 
     @staticmethod
     @st.cache_data(ttl=300)
     def get_temporal_data() -> pd.DataFrame:
-        """Fetch temporal trends data"""
-        query = "SELECT * FROM analytics.temporal_data_dashboard"
-        return fetch_data(query)
+        """Fetch temporal trends data with error handling"""
+        try:
+            query = "SELECT * FROM analytics.temporal_data_dashboard"
+            result = fetch_data(query)
+            if result.empty:
+                print("INFO: " + "No temporal data available")
+            return result
+        except Exception as e:
+            print("WARNING: " + f"Could not fetch temporal data: {str(e)}")
+            return pd.DataFrame()
 
     @staticmethod
     @st.cache_data
     def get_wordcloud_data() -> pd.DataFrame:
-        """Fetch word cloud data"""
-        query = "SELECT * FROM analytics.wordcloud_data_dashboard"
-        return fetch_data(query)
+        """Fetch word cloud data with error handling"""
+        try:
+            query = "SELECT * FROM analytics.wordcloud_data_dashboard"
+            result = fetch_data(query)
+            return result
+        except Exception as e:
+            print("WARNING: " + f"Could not fetch wordcloud data: {str(e)}")
+            return pd.DataFrame()
 
     @staticmethod
     @st.cache_data(ttl=300)
     def get_overall_stats() -> Dict[str, Any]:
-        """Get overall dashboard statistics"""
-        query = "SELECT * FROM analytics.overall_stats_dashboard"
-        result = fetch_data(query)
-        return result.iloc[0].to_dict() if not result.empty else {}
+        """Get overall dashboard statistics with safe fallbacks"""
+        try:
+            query = "SELECT * FROM analytics.overall_stats_dashboard"
+            result = fetch_data(query)
+            if not result.empty:
+                stats = result.iloc[0].to_dict()
+                # Clean numeric columns to handle 'None' strings
+                numeric_columns = ['total_extractions', 'unique_artists', 'total_sentiment_count', 'positive_count']
+                for col in numeric_columns:
+                    if col in stats:
+                        stats[col] = DataManager.safe_convert_numeric(stats[col])
+                return stats
+            else:
+                # Return default empty stats if no data
+                return {
+                    'total_extractions': 0,
+                    'unique_artists': 0,
+                    'avg_sentiment': 5.0,
+                    'total_sentiment_count': 0,
+                    'positive_count': 0
+                }
+        except Exception as e:
+            print("WARNING: " + f"Could not fetch overall stats: {str(e)}")
+            # Return safe defaults
+            return {
+                'total_extractions': 0,
+                'unique_artists': 0,
+                'avg_sentiment': 5.0,
+                'total_sentiment_count': 0,
+                'positive_count': 0
+            }
 
     # === AI & INSIGHTS DATA ===
 
@@ -224,7 +333,7 @@ class DataManager:
                 'engagement_levels': engagement_data
             }
         except Exception as e:
-            st.warning(f"AI trend summary not available: {e}")
+            print("WARNING: " + f"AI trend summary not available: {e}")
             return {
                 'artists': pd.DataFrame(),
                 'overview': pd.DataFrame(),
@@ -268,7 +377,7 @@ class DataManager:
                 'artist_insights': artist_insights_data
             }
         except Exception as e:
-            st.warning(f"AI insights not available: {e}")
+            print("WARNING: " + f"AI insights not available: {e}")
             return {
                 'overview': pd.DataFrame(),
                 'findings': pd.DataFrame(),
@@ -299,7 +408,7 @@ class DataManager:
             """
             data['sentiment'] = DataManager.decode_artist_names(fetch_data(sentiment_query))
 
-            # Enriched artist data
+            # Enriched artist data - fix column name and ordering
             enriched_query = """
             SELECT * FROM analytics.artist_trends_enriched_dashboard
             ORDER BY total_mentions DESC
@@ -307,7 +416,7 @@ class DataManager:
             """
             data['enriched'] = DataManager.decode_artist_names(fetch_data(enriched_query))
 
-            # URL analysis
+            # URL analysis - use proper url_analysis_dashboard table
             url_query = """
             SELECT * FROM analytics.url_analysis_dashboard
             ORDER BY mention_count DESC
@@ -315,18 +424,18 @@ class DataManager:
             """
             data['url_analysis'] = DataManager.decode_artist_names(fetch_data(url_query))
 
-            # Author influence
+            # Author influence - use proper author_influence_dashboard table
             author_query = """
             SELECT * FROM analytics.author_influence_dashboard
             ORDER BY total_mentions DESC
             LIMIT 50
             """
-            data['author_influence'] = fetch_data(author_query)
+            data['author_influence'] = DataManager.decode_artist_names(fetch_data(author_query))
 
             return data
 
         except Exception as e:
-            st.error(f"Error loading artist analytics data: {e}")
+            print("ERROR: " + f"Error loading artist analytics data: {e}")
             return {
                 'trends': pd.DataFrame(),
                 'sentiment': pd.DataFrame(),
@@ -364,7 +473,7 @@ class DataManager:
         try:
             return DataManager.decode_artist_names(fetch_data(query))
         except Exception as e:
-            st.warning(f"Video context data not available: {e}")
+            print("WARNING: " + f"Video context data not available: {e}")
             return pd.DataFrame()
 
     # === DATA VALIDATION ===
@@ -378,7 +487,7 @@ class DataManager:
         if expected_columns:
             missing_cols = set(expected_columns) - set(df.columns)
             if missing_cols:
-                st.warning(f"Missing expected columns: {missing_cols}")
+                print("WARNING: " + f"Missing expected columns: {missing_cols}")
                 return False
 
         return True
@@ -390,7 +499,7 @@ class DataManager:
             result = func()
             return result if result is not None else fallback
         except Exception as e:
-            st.warning(f"Data loading error: {e}")
+            print("WARNING: " + f"Data loading error: {e}")
             return fallback or pd.DataFrame()
 
     # === GET LUCKY FEATURE ===
@@ -403,10 +512,10 @@ class DataManager:
             from youtube_search import search_artist_videos
             return search_artist_videos(artist_name, max_results=5)
         except ImportError:
-            st.warning("YouTube API not available. Please check API configuration.")
+            print("WARNING: " + "YouTube API not available. Please check API configuration.")
             return []
         except Exception as e:
-            st.error(f"Error fetching YouTube videos: {e}")
+            print("ERROR: " + f"Error fetching YouTube videos: {e}")
             return []
 
     @staticmethod
@@ -439,12 +548,12 @@ class DataManager:
             profile = {
                 'basic_info': {
                     'name': artist_name,
-                    'mention_count': int(basic_info.iloc[0]['mention_count']) if basic_info.iloc[0]['mention_count'] is not None else 0,
-                    'sentiment_score': float(basic_info.iloc[0]['sentiment_score']) if basic_info.iloc[0]['sentiment_score'] is not None else 5.0,
-                    'trend_strength': float(basic_info.iloc[0]['trend_strength']) if basic_info.iloc[0]['trend_strength'] is not None else 0.5,
-                    'trend_direction': basic_info.iloc[0]['trend_direction'] if basic_info.iloc[0]['trend_direction'] is not None else 'neutral',
-                    'engagement_level': basic_info.iloc[0]['engagement_level'] if basic_info.iloc[0]['engagement_level'] is not None else 'low',
-                    'platform_count': int(basic_info.iloc[0]['platform_count']) if basic_info.iloc[0]['platform_count'] is not None else 1
+                    'mention_count': DataManager.safe_convert_numeric(basic_info.iloc[0]['mention_count']),
+                    'sentiment_score': float(basic_info.iloc[0]['sentiment_score']),
+                    'trend_strength': float(basic_info.iloc[0]['trend_strength']),
+                    'trend_direction': basic_info.iloc[0]['trend_direction'],
+                    'engagement_level': basic_info.iloc[0]['engagement_level'],
+                    'platform_count': DataManager.safe_convert_numeric(basic_info.iloc[0]['platform_count'])
                 }
             }
 
@@ -466,7 +575,7 @@ class DataManager:
             return profile
 
         except Exception as e:
-            st.error(f"Error getting random artist profile: {e}")
+            print("ERROR: " + f"Error getting random artist profile: {e}")
             return {}
 
     @staticmethod
@@ -497,11 +606,11 @@ class DataManager:
             if not rankings.empty:
                 row = rankings.iloc[0]
                 return {
-                    'mention_rank': int(row['mention_rank']),
-                    'sentiment_rank': int(row['sentiment_rank']),
-                    'trend_rank': int(row['trend_rank']),
-                    'platform_rank': int(row['platform_rank']),
-                    'total_artists': int(row['total_artists'])
+                    'mention_rank': DataManager.safe_convert_numeric(row['mention_rank']),
+                    'sentiment_rank': DataManager.safe_convert_numeric(row['sentiment_rank']),
+                    'trend_rank': DataManager.safe_convert_numeric(row['trend_rank']),
+                    'platform_rank': DataManager.safe_convert_numeric(row['platform_rank']),
+                    'total_artists': DataManager.safe_convert_numeric(row['total_artists'])
                 }
             return {}
         except Exception:
@@ -546,13 +655,13 @@ class DataManager:
             if not platforms.empty:
                 row = platforms.iloc[0]
                 return {
-                    'youtube_mentions': int(row['youtube_mentions']) if pd.notna(row['youtube_mentions']) else 0,
-                    'reddit_mentions': int(row['reddit_mentions']) if pd.notna(row['reddit_mentions']) else 0,
-                    'total_mentions': int(row['total_mentions']) if pd.notna(row['total_mentions']) else 0,
-                    'unique_videos': int(row['unique_videos_mentioned']) if pd.notna(row['unique_videos_mentioned']) else 0,
-                    'unique_posts': int(row['unique_posts_mentioned']) if pd.notna(row['unique_posts_mentioned']) else 0,
-                    'unique_channels': int(row['unique_channels']) if pd.notna(row['unique_channels']) else 0,
-                    'unique_subreddits': int(row['unique_subreddits']) if pd.notna(row['unique_subreddits']) else 0
+                    'youtube_mentions': DataManager.safe_convert_numeric(row['youtube_mentions']),
+                    'reddit_mentions': DataManager.safe_convert_numeric(row['reddit_mentions']),
+                    'total_mentions': DataManager.safe_convert_numeric(row['total_mentions']),
+                    'unique_videos': DataManager.safe_convert_numeric(row['unique_videos_mentioned']),
+                    'unique_posts': DataManager.safe_convert_numeric(row['unique_posts_mentioned']),
+                    'unique_channels': DataManager.safe_convert_numeric(row['unique_channels']),
+                    'unique_subreddits': DataManager.safe_convert_numeric(row['unique_subreddits'])
                 }
             return {}
         except Exception:
@@ -575,9 +684,9 @@ class DataManager:
             if not sentiment.empty:
                 row = sentiment.iloc[0]
                 return {
-                    'overall_sentiment': row['overall_sentiment'] if row['overall_sentiment'] is not None else 'neutral',
-                    'sentiment_score': float(row['sentiment_score']) if row['sentiment_score'] is not None else 5.0,
-                    'mention_count': int(row['mention_count']) if row['mention_count'] is not None else 0
+                    'overall_sentiment': row['overall_sentiment'],
+                    'sentiment_score': float(row['sentiment_score']),
+                    'mention_count': DataManager.safe_convert_numeric(row['mention_count'])
                 }
             return {}
         except Exception:
@@ -599,3 +708,10 @@ class DataManager:
             return insights['insight_text'].tolist() if not insights.empty else []
         except Exception:
             return []
+
+    @staticmethod
+    @st.cache_data
+    def get_artist_sentiment_data() -> pd.DataFrame:
+        """Fetch artist sentiment data"""
+        from data_queries import get_artist_sentiment_data
+        return get_artist_sentiment_data()

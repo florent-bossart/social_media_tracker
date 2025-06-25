@@ -59,7 +59,7 @@ def import_step_functions():
             input_filename = Path(latest_file).name
             expected_output = input_filename.replace('_cleaned.csv', '_cleaned_nllb_translated.csv')
             output_path = f"{translated_dir}/{expected_output}"
-            
+
             if os.path.exists(output_path):
                 print(f"✅ Translated file already exists: {output_path}")
                 print("Skipping translation step to avoid memory issues")
@@ -697,7 +697,7 @@ with DAG(
     dag_id='llm_complete_pipeline_full',
     default_args=default_args,
     description='Complete Pipeline: DBT → Data Extraction → LLM Processing → Data Loading → DBT (STRICT SEQUENTIAL)',
-    schedule_interval=None,  # Manual execution only
+    schedule_interval="0 2 * * *",  # Manual execution only
     start_date=days_ago(1),
     catchup=False,
     max_active_tasks=1,  # Force sequential execution - only one task at a time

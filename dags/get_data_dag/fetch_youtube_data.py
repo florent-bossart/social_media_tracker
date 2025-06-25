@@ -12,7 +12,7 @@ def trigger_youtube_api():
 with DAG(
     "fetch_youtube_data",
     start_date=datetime(2024, 5, 1),
-    schedule_interval=None,
+    schedule_interval="0 1 * * *",
     catchup=False,
     description="Triggers the YouTube data fetch API",
     tags=["youtube", "fetch", "api"]

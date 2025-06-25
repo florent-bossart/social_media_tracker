@@ -1,40 +1,40 @@
-#!/usr/bin/env python3
-"""
-Streamlit Cloud Entry Point for Social Media Tracker Dashboard
+# streamlit_app.py
 
-This file serves as the entry point for Streamlit Cloud deployment.
-It imports and runs the online dashboard version.
+"""
+Streamlit Entry Point for Japanese Music Trends Dashboard
+Hugging face space version.
 """
 
-import sys
 import os
+import sys
+import streamlit as st
 
-# Get the absolute path to the dashboard_online directory
-dashboard_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'dashboard_online')
+# Setup Streamlit early
+st.set_page_config(
+    page_title="🎌 Japanese Music Trends Dashboard",
+    page_icon="🎵",
+    layout="wide"
+)
 
-# Add the dashboard_online directory to the Python path at the beginning
-sys.path.insert(0, dashboard_dir)
+# Add dashboard directory to path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'dashboard_online'))
 
-# Change working directory to dashboard_online to help with relative imports
-original_cwd = os.getcwd()
-os.chdir(dashboard_dir)
+# Optional Debug Sidebar
+if st.sidebar.checkbox("🔍 Show Debug Info", value=False):
+    st.sidebar.write(f"**Python Path:** {sys.path[:2]}")
+    st.sidebar.write(f"**Working Dir:** {os.getcwd()}")
+    try:
+        import dashboard_online.main_dashboard
+        st.sidebar.success("✅ main_dashboard import successful")
+    except Exception as e:
+        st.sidebar.error(f"❌ Import failed: {e}")
 
+# Attempt to run the dashboard
 try:
-    # Import the main dashboard - this will execute the dashboard code
-    import main_dashboard
-except ImportError as e:
-    import streamlit as st
-    st.error(f"Failed to import dashboard: {e}")
-    st.error("Make sure all required dependencies are installed.")
-    st.error(f"Dashboard directory: {dashboard_dir}")
-    st.error(f"Current working directory: {os.getcwd()}")
-    st.error(f"Python path: {sys.path[:3]}...")
-    st.stop()
+    from dashboard_online.main_dashboard import run_dashboard
+    run_dashboard()
+
 except Exception as e:
-    import streamlit as st
-    st.error(f"Error running dashboard: {e}")
-    st.error("Please check the logs for more details.")
-    st.stop()
-finally:
-    # Restore original working directory
-    os.chdir(original_cwd)
+    st.error("❌ Failed to run the dashboard.")
+    st.code(str(e))
+    st.warning("Check your imports, paths, or database config.")
