@@ -1,11 +1,9 @@
 """
-Patch for adding YouTube integration to Get Lucky page.
-This works around the corrupted data_manager.py file.
+YouTube integration for the Get Lucky page.
 """
 
 import streamlit as st
 import os
-from typing import List, Dict
 from youtube_search import search_artist_videos, format_duration, format_view_count
 
 def add_youtube_section_to_get_lucky(artist_name: str):
@@ -13,14 +11,26 @@ def add_youtube_section_to_get_lucky(artist_name: str):
 
     st.subheader("🎥 YouTube Videos")
 
-    # Check if YouTube API is available
-    api_key = os.getenv('YOUTUBE_API_KEY')
+    # Check if YouTube API key is available
+    api_key = None
+    
+    # Try Streamlit secrets first (for Hugging Face Spaces)
+    try:
+        if hasattr(st, 'secrets') and 'YOUTUBE_API_KEY' in st.secrets:
+            api_key = st.secrets['YOUTUBE_API_KEY']
+    except:
+        pass
+    
+    # Fallback to environment variables
+    if not api_key:
+        api_key = os.getenv('YOUTUBE_API_KEY')
+    
     if not api_key:
         st.warning("🔑 YouTube API key not configured")
         st.info("""
         To enable YouTube video search:
-        1. Set your YouTube API key as an environment variable: `YOUTUBE_API_KEY`
-        2. Restart the application
+        1. Add your YouTube API key to Hugging Face Spaces secrets as `YOUTUBE_API_KEY`
+        2. Or set as environment variable: `YOUTUBE_API_KEY`
 
         For now, you can search manually:
         """)
@@ -31,7 +41,7 @@ def add_youtube_section_to_get_lucky(artist_name: str):
     with st.spinner(f"🔍 Searching for {artist_name} videos on YouTube..."):
         try:
             videos = search_artist_videos(artist_name, max_results=5)
-
+            
             if videos:
                 st.success(f"Found {len(videos)} videos for {artist_name}")
 
@@ -53,8 +63,9 @@ def add_youtube_section_to_get_lucky(artist_name: str):
                             st.metric("Likes", format_view_count(video['like_count']))
 
             else:
-                st.info(f"No YouTube videos found for {artist_name}. This could be due to:")
+                st.info(f"No YouTube videos found for {artist_name}.")
                 st.markdown("""
+                This could be due to:
                 - YouTube API quota limits
                 - No recent videos matching the search criteria
                 - Network connectivity issues

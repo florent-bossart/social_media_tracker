@@ -4,41 +4,25 @@ Provides functionality to search for artist videos and return formatted results.
 """
 
 import os
-import sys
-from typing import List, Dict, Optional
-from datetime import datetime
+import requests
+from typing import List, Dict
+import streamlit as st
 
-# Add the API directory to the path to import YouTube functions
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'api'))
-
-try:
-    from googleapiclient.discovery import build
-    from googleapiclient.errors import HttpError
-    YOUTUBE_AVAILABLE = True
-except ImportError:
-    YOUTUBE_AVAILABLE = False
-    HttpError = Exception  # Fallback for error handling
-    print("Warning: YouTube API not available. Install required dependencies.")
-
-# Global variables
+# Get YouTube API key from environment or Streamlit secrets
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
-youtube = None
 
-if YOUTUBE_AVAILABLE and YOUTUBE_API_KEY:
+# Try Hugging Face secrets if environment variable is not found
+if not YOUTUBE_API_KEY:
     try:
-        youtube = build("youtube", "v3", developerKey=YOUTUBE_API_KEY)
-        print(f"YouTube API client initialized successfully")
-    except Exception as e:
-        print(f"Failed to initialize YouTube API client: {e}")
-        YOUTUBE_AVAILABLE = False
-else:
-    YOUTUBE_AVAILABLE = False
-    if not YOUTUBE_API_KEY:
-        print("Warning: YouTube API key not found in environment variables.")
+        if hasattr(st, 'secrets') and 'YOUTUBE_API_KEY' in st.secrets:
+            YOUTUBE_API_KEY = st.secrets['YOUTUBE_API_KEY']
+    except:
+        pass
 
 def search_artist_videos(artist_name: str, max_results: int = 5) -> List[Dict]:
     """
     Search for YouTube videos for a specific artist and return top results.
+    Uses direct HTTP requests to YouTube API for compatibility with Hugging Face Spaces.
 
     Args:
         artist_name (str): Name of the artist to search for
@@ -47,49 +31,65 @@ def search_artist_videos(artist_name: str, max_results: int = 5) -> List[Dict]:
     Returns:
         List[Dict]: List of video information dictionaries
     """
-    if not YOUTUBE_AVAILABLE or not YOUTUBE_API_KEY or not youtube:
-        return []
-
-    if not artist_name or not isinstance(artist_name, str):
+    if not YOUTUBE_API_KEY or not artist_name or not isinstance(artist_name, str):
         return []
 
     try:
-        # Try a simple, direct search
-        request = youtube.search().list(
-            part="id,snippet",
-            q=artist_name,  # Simple query with just artist name
-            type="video",
-            order="relevance",  # Order by relevance for best results
-            maxResults=max_results
-        )
-        response = request.execute()
-
-        video_ids = []
-        for item in response.get("items", []):
-            video_id = item["id"]["videoId"]
-            video_ids.append(video_id)
-
+        # Step 1: Search for videos
+        search_url = "https://www.googleapis.com/youtube/v3/search"
+        search_params = {
+            'part': 'id,snippet',
+            'q': artist_name,
+            'type': 'video',
+            'order': 'relevance',
+            'maxResults': max_results,
+            'key': YOUTUBE_API_KEY
+        }
+        
+        search_response = requests.get(search_url, params=search_params, timeout=10)
+        
+        if search_response.status_code != 200:
+            return []
+        
+        search_data = search_response.json()
+        items = search_data.get('items', [])
+        
+        if not items:
+            return []
+        
+        # Extract video IDs
+        video_ids = [item['id']['videoId'] for item in items if 'videoId' in item['id']]
+        
         if not video_ids:
             return []
-
-        # Get detailed video information
-        request = youtube.videos().list(
-            part="snippet,statistics,contentDetails",
-            id=','.join(video_ids[:max_results])
-        )
-        response = request.execute()
-
-        # Format results for the dashboard
+        
+        # Step 2: Get video details
+        details_url = "https://www.googleapis.com/youtube/v3/videos"
+        details_params = {
+            'part': 'snippet,statistics,contentDetails',
+            'id': ','.join(video_ids),
+            'key': YOUTUBE_API_KEY
+        }
+        
+        details_response = requests.get(details_url, params=details_params, timeout=10)
+        
+        if details_response.status_code != 200:
+            return []
+        
+        details_data = details_response.json()
+        video_items = details_data.get('items', [])
+        
+        # Format results
         formatted_results = []
-        for video in response.get("items", []):
-            snippet = video.get("snippet", {})
-            stats = video.get("statistics", {})
-            content_details = video.get("contentDetails", {})
-
+        for video in video_items:
+            snippet = video.get('snippet', {})
+            stats = video.get('statistics', {})
+            content_details = video.get('contentDetails', {})
+            
             # Parse duration
-            duration_str = content_details.get("duration", "PT0S")
+            duration_str = content_details.get('duration', 'PT0S')
             duration_seconds = parse_duration(duration_str)
-
+            
             video_info = {
                 'video_id': video['id'],
                 'title': snippet.get('title', 'Unknown Title'),
@@ -103,14 +103,10 @@ def search_artist_videos(artist_name: str, max_results: int = 5) -> List[Dict]:
                 'thumbnail_url': snippet.get('thumbnails', {}).get('medium', {}).get('url', '')
             }
             formatted_results.append(video_info)
-
+        
         return formatted_results
-
-    except HttpError as e:
-        print(f"YouTube API HttpError: {e}")
-        return []
-    except Exception as e:
-        print(f"YouTube search error: {e}")
+        
+    except Exception:
         return []
 
 def parse_duration(duration_str: str) -> int:
