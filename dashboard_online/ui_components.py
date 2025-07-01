@@ -5,6 +5,7 @@ Contains Streamlit styling, layout components, and reusable UI elements.
 
 import streamlit as st
 import pandas as pd
+from data_manager import DataManager
 
 def apply_custom_css():
     """Apply custom CSS styling for Japanese aesthetic"""
@@ -67,25 +68,26 @@ def display_metrics_row(stats):
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
-        total_mentions = int(stats.get('total_extractions', 0)) if stats and 'total_extractions' in stats else 0
+        total_mentions = DataManager.safe_convert_numeric(stats.get('total_extractions', 0)) if stats and 'total_extractions' in stats else 0
         st.metric("Total Extractions", f"{total_mentions:,}")
 
     with col2:
-        avg_sentiment_raw = stats.get('avg_sentiment', 5.0) if stats and 'avg_sentiment' in stats else 5.0
-        avg_sentiment = float(avg_sentiment_raw) if avg_sentiment_raw is not None else 5.0
+        avg_sentiment = float(stats.get('avg_sentiment', 5.0)) if stats and 'avg_sentiment' in stats else 5.0
         st.metric("Average Sentiment", f"{avg_sentiment:.1f}/10")
 
     with col3:
-        unique_artists = int(stats.get('unique_artists', 0)) if stats and 'unique_artists' in stats else 0
+        unique_artists = DataManager.safe_convert_numeric(stats.get('unique_artists', 0)) if stats and 'unique_artists' in stats else 0
         st.metric("Unique Artists", unique_artists)
 
     with col4:
-        total_sentiment_count = stats.get('total_sentiment_count', 0) if stats else 0
-        positive_count = stats.get('positive_count', 0) if stats else 0
-        
-        if total_sentiment_count and total_sentiment_count > 0 and positive_count is not None:
-            positive_pct = (positive_count / total_sentiment_count) * 100
-            st.metric("Positive Sentiment", f"{positive_pct:.1f}%")
+        if stats and 'total_sentiment_count' in stats and 'positive_count' in stats:
+            total_sentiment_count = DataManager.safe_convert_numeric(stats.get('total_sentiment_count', 0))
+            positive_count = DataManager.safe_convert_numeric(stats.get('positive_count', 0))
+            if total_sentiment_count > 0:
+                positive_pct = (positive_count / total_sentiment_count) * 100
+                st.metric("Positive Sentiment", f"{positive_pct:.1f}%")
+            else:
+                st.metric("Positive Sentiment", "N/A")
         else:
             st.metric("Positive Sentiment", "N/A")
 
@@ -166,13 +168,13 @@ def display_trend_summary_overview(trend_summary_data):
             analysis_date = str(overview['analysis_timestamp'])[:10] if pd.notna(overview['analysis_timestamp']) else "N/A"
             st.metric("Analysis Date", analysis_date)
         with col2:
-            total_artists = int(overview['total_artists_analyzed']) if pd.notna(overview['total_artists_analyzed']) else 0
+            total_artists = DataManager.safe_convert_numeric(overview['total_artists_analyzed'])
             st.metric("Artists Analyzed", f"{total_artists:,}")
         with col3:
-            total_genres = int(overview['total_genres_analyzed']) if pd.notna(overview['total_genres_analyzed']) else 0
+            total_genres = DataManager.safe_convert_numeric(overview['total_genres_analyzed'])
             st.metric("Genres Analyzed", f"{total_genres:,}")
         with col4:
-            time_periods = int(overview['time_periods_analyzed']) if pd.notna(overview['time_periods_analyzed']) else 0
+            time_periods = DataManager.safe_convert_numeric(overview['time_periods_analyzed'])
             st.metric("Time Periods", time_periods)
 
         # Show trending artists count
@@ -190,13 +192,20 @@ def display_trend_summary_overview(trend_summary_data):
 
 def display_artist_details(artist_info):
     """Display detailed information for a selected artist"""
+    if not artist_info:
+        st.warning("No artist information available")
+        return
+
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.metric("Total Mentions", int(artist_info['mention_count']))
+        mention_count = DataManager.safe_convert_numeric(artist_info.get('mention_count', 0))
+        st.metric("Total Mentions", mention_count)
     with col2:
-        st.metric("Sentiment Score", f"{artist_info['sentiment_score']:.1f}/10")
+        sentiment_score = float(artist_info.get('sentiment_score', 5.0)) if artist_info.get('sentiment_score') is not None else 5.0
+        st.metric("Sentiment Score", f"{sentiment_score:.1f}/10")
     with col3:
-        st.metric("Trend Strength", f"{artist_info['trend_strength']:.2f}")
+        trend_strength = float(artist_info.get('trend_strength', 0.0)) if artist_info.get('trend_strength') is not None else 0.0
+        st.metric("Trend Strength", f"{trend_strength:.2f}")
 
 def create_error_message(message, error_type="error"):
     """Create a formatted error message"""

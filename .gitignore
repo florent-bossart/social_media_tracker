@@ -301,3 +301,46 @@ logs/
 dbt_social_media_tracker/logs/
 logs/dag_processor_manager/
 logs/scheduler/
+
+# Debug and test files (temporary)
+debug_*.py
+test_*.py
+*_test.py
+comprehensive_fix_test.py
+minimal_navigation_test.py
+navigation_diagnostic.py
+investigate_data_structure.py
+find_actual_data.py
+deep_db_investigate.py
+
+# Documentation files (temporary)
+*_FIXES.md
+*_DEBUG*.md
+*_DEPLOYMENT.md
+*_SUMMARY.md
+ALTERNATIVE_*.md
+FINAL_PROJECT_STATUS.md
+
+# SQL debug files
+create_alternative_*.sql
+create_missing_*.sql
+supabase_*.sql
+validate_*.py
+
+# Alternative app files
+app.py
+app_fixed.py
+*_app.py
+simple_fallback_app.py
+streamlit_app_robust*.py
+streamlit_cloud_app.py
+huggingface_app.py
+
+# Deployment files
+Procfile
+runtime.txt
+requirements.streamlit.txt
+deploy_*.sh
+run_dbt_*.sh
+Dockerfile.improved
+Dockerfile.poetry

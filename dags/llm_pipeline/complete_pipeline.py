@@ -59,7 +59,7 @@ def import_step_functions():
             input_filename = Path(latest_file).name
             expected_output = input_filename.replace('_cleaned.csv', '_cleaned_nllb_translated.csv')
             output_path = f"{translated_dir}/{expected_output}"
-            
+
             if os.path.exists(output_path):
                 print(f"✅ Translated file already exists: {output_path}")
                 print("Skipping translation step to avoid memory issues")

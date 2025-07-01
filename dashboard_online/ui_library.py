@@ -323,51 +323,66 @@ class PageLayouts:
 
     @staticmethod
     def tabbed_content(tabs_config: Dict[str, callable]):
-        """Standardized tabbed content layout - using selectbox for stability"""
+        """Standardized tabbed content layout"""
         tab_names = list(tabs_config.keys())
-        
-        # Use selectbox instead of tabs for better compatibility
-        selected_tab = st.selectbox(
-            "Select view:",
-            tab_names,
-            key=f"tab_selector_{hash(str(tab_names))}"
-        )
-        
-        # Render selected content
-        if selected_tab in tabs_config:
-            st.markdown("---")
-            tabs_config[selected_tab]()
+        tabs = st.tabs(tab_names)
+
+        for tab, (tab_name, content_func) in zip(tabs, tabs_config.items()):
+            with tab:
+                content_func()
 
 class Navigation:
     """Navigation and routing utilities"""
 
     @staticmethod
     def create_sidebar_nav() -> str:
-        """Create standardized sidebar navigation using selectbox for stability"""
+        """Create standardized sidebar navigation - simplified version"""
         st.sidebar.title("🎵 Navigation")
 
-        # Use selectbox for more stable navigation
-        pages = [
-            "🏠 Overview",
-            "🎤 Artist Analytics Hub", 
-            "🎶 Genre Analysis",
-            "☁️ Word Cloud",
-            "📱 Platform Insights",
-            "🤖 AI Intelligence Center",
-            "🎲 Get Lucky"
-        ]
-        
-        # Use session state to preserve selection
-        if 'selected_page' not in st.session_state:
-            st.session_state.selected_page = pages[0]
-            
-        selected = st.sidebar.selectbox(
-            "Choose a section:",
-            pages,
-            index=pages.index(st.session_state.selected_page) if st.session_state.selected_page in pages else 0
+        # Simple radio button navigation - let Streamlit handle the state
+        selected = st.sidebar.radio(
+            "Select a page:",
+            options=[
+                "🏠 Overview",
+                "🎤 Artist Analytics Hub",
+                "🎶 Genre Analysis",
+                "☁️ Word Cloud",
+                "📱 Platform Insights",
+                "🤖 AI Intelligence Center",
+                "🎲 Get Lucky"
+            ],
+            key="nav_selection"
         )
-        
-        st.session_state.selected_page = selected
+
+        # Debug: Show what was selected
+        st.sidebar.write(f"🔍 Navigation selected: `{repr(selected)}`")
+        st.sidebar.write(f"🔍 Function call timestamp: `{pd.Timestamp.now().strftime('%H:%M:%S.%f')}`")
+
+        # Add data refresh controls
+        st.sidebar.markdown("---")
+        st.sidebar.subheader("🔄 Data Controls")
+
+        # Show last refresh time if available
+        if 'last_refresh' in st.session_state and st.session_state.last_refresh:
+            st.sidebar.caption(f"Last refresh: {st.session_state.last_refresh.strftime('%H:%M:%S')}")
+
+        # Data refresh button
+        if st.sidebar.button("🔄 Refresh Data", help="Reload all dashboard data"):
+            # Clear cached data
+            st.session_state.data_loaded = False
+            if 'dashboard_data' in st.session_state:
+                del st.session_state.dashboard_data
+            st.session_state.last_refresh = pd.Timestamp.now()
+            st.sidebar.success("Data refresh initiated...")
+            st.rerun()
+
+        # Force rerun button for testing
+        st.sidebar.markdown("---")
+        st.sidebar.subheader("🔧 Debug Controls")
+        if st.sidebar.button("⚡ Force Rerun", help="Force Streamlit to rerun the script"):
+            st.sidebar.info("Force rerun triggered...")
+            st.rerun()
+
         return selected
 
     @staticmethod

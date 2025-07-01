@@ -5,10 +5,13 @@
 # dataFrameSerialization option has been removed in newer Streamlit versions
 
 [server]
-# Server configuration
+# Server configuration for Docker/Hugging Face deployment
+port = 7860
+address = "0.0.0.0"
 headless = true
 enableCORS = false
 enableXsrfProtection = false
+maxUploadSize = 200
 
 [browser]
 # Browser configuration
@@ -21,3 +24,24 @@ backgroundColor = "#FFFFFF"
 secondaryBackgroundColor = "#F0F2F6"
 textColor = "#262730"
 font = "sans serif"
+
+# Streamlit Cloud specific optimizations
+[client]
+# Reduce memory usage for Streamlit Cloud
+caching = true
+showErrorDetails = true
+
+[runner]
+# Optimize for Streamlit Cloud performance
+magicEnabled = false
+installTracer = false
+fixMatplotlib = false
+
+[logger]
+# Reduce logging overhead
+level = "warning"
+
+[deprecation]
+# Disable deprecation warnings to reduce overhead
+showfileUploaderEncoding = false
+showPyplotGlobalUse = false
