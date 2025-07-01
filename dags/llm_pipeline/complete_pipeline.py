@@ -697,7 +697,7 @@ with DAG(
     dag_id='llm_complete_pipeline_full',
     default_args=default_args,
     description='Complete Pipeline: DBT → Data Extraction → LLM Processing → Data Loading → DBT (STRICT SEQUENTIAL)',
-    schedule_interval="0 2 * * *",  # Manual execution only
+    schedule_interval=None,  # Manual execution only
     start_date=days_ago(1),
     catchup=False,
     max_active_tasks=1,  # Force sequential execution - only one task at a time

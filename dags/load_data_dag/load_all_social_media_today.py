@@ -17,7 +17,7 @@ def run_load_all_files_today(**context):
 with DAG(
     "load_all_social_media_raw_today",
     start_date=datetime(2024, 5, 1),
-    schedule_interval="20 1 * * *",
+    schedule_interval=None,
     catchup=False,
     description="Loads both Reddit and YouTube data for current execution date",
     tags=["social_media", "raw", "warehouse", "Daily"]
