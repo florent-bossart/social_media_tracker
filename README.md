@@ -1,51 +1,62 @@
-# 📊 Project: Japanese Music trends Detection
+# 📊 Project: Japanese Music Trends Detection
 
 ## 📝 Project Description
 
-Automated data pipeline that tracks trending artists on social media (like youtube and Reddit), analyzes the sentiment of public posts in real-time on a Daily basis, and visualizes evolving public opinions on different themes (e.g., tech innovations, climate change, major events).
+Automated data pipeline that tracks trending artists on social media (like YouTube and Reddit), analyzes the sentiment of public posts in real-time on a daily basis, and visualizes evolving public opinions on different themes (e.g., tech innovations, climate change, major events).
+
 The pipeline is orchestrated using **Airflow**, and data transformation is handled by **DBT**, ensuring clean and analyzable datasets. The project will use cost-free or low-cost data sources and open-source tools to avoid cloud expenses.
 
+## How to Use
 
-## How to use :
+### Prerequisites
 
-Install poetry with the dependencies from pyproject.toml
-Install docker
-Create an account on GCP to be able to query youtube API. Look for the API in GCP and it should guide you on what you need to do.
-Create an account for Reddit API https://www.reddit.com/prefs/apps
-Copy and complete env_file.example
-Install Ollama https://ollama.com/  Linux : curl -fsSL https://ollama.com/install.sh | sh
-Install ollama models : ollama pull llama3:7b
+1. Install poetry with the dependencies from pyproject.toml
+2. Install docker
+3. Create an account on GCP to be able to query YouTube API. Look for the API in GCP and it should guide you on what you need to do.
+4. Create an account for Reddit API https://www.reddit.com/prefs/apps
+5. Copy and complete env_file.example
+6. Install Ollama https://ollama.com/
+   - Linux: `curl -fsSL https://ollama.com/install.sh | sh`
+7. Install ollama models: `ollama pull llama3:7b`
 
-Run docker compose build, then docker compose up. Then you will be able to manually trigger each step from Airflow.
-!!! The LLM part takes a lot of processing, you can use different machines to run the LLM part, you will need to set up a tunnel from your execution environment to the processing machine, and install Ollama on the processing machine !!!
-How to run :
-Daily - Run DAGS:
-- fetch_reddit_daily_data             => Get reddit data usingthe API
-- fetch_youtube_daily_data            => Get youtube data using the API
-- Load_all_social_media_raw_today     => Load youtube and reddit data in the raw schema
-- llm_complete_pipeline_full          => all the LLM part + dbt
-For LLM step by step :
-- dbt_run                             => clean the data and create intermediary tables
-- cleaned_data_extraction             => extract intermediary data for LLM processing
-- llm_step_1_translate_youtube_optimized => translate Japanese youtube comments into English. Optimized version have special memory config
-- llm_step2_entity_youtube            => extract entities from youtube
-- llm_step3_entity_reddit             => extract entities from reddit
-- llm_step4_sentiment_youtube         => extract sentiment from youtube
-- llm_step5_sentiment_reddit          => extract sentiment from reddit
-- llm_step6_trend_combined            => generate trends files
-- llm_step7_summarization             => generate summarization
-- step8_load_analytics_simple         => load llm generated data into the analytics schema
-- dbt_run                             => generate the views for the dashboard
+### Running the Project
+
+1. Run `docker compose build`
+2. Run `docker compose up`
+3. You will be able to manually trigger each step from Airflow
+
+> **Note:** The LLM part takes a lot of processing. You can use different machines to run the LLM part. You will need to set up a tunnel from your execution environment to the processing machine, and install Ollama on the processing machine.
+
+### Daily DAGs
+
+- **fetch_reddit_daily_data** - Get Reddit data using the API
+- **fetch_youtube_daily_data** - Get YouTube data using the API
+- **Load_all_social_media_raw_today** - Load YouTube and Reddit data in the raw schema
+- **llm_complete_pipeline_full** - All the LLM part + DBT
+
+### LLM Step by Step
+
+- **dbt_run** - Clean the data and create intermediary tables
+- **cleaned_data_extraction** - Extract intermediary data for LLM processing
+- **llm_step_1_translate_youtube_optimized** - Translate Japanese YouTube comments into English (optimized version with special memory config)
+- **llm_step2_entity_youtube** - Extract entities from YouTube
+- **llm_step3_entity_reddit** - Extract entities from Reddit
+- **llm_step4_sentiment_youtube** - Extract sentiment from YouTube
+- **llm_step5_sentiment_reddit** - Extract sentiment from Reddit
+- **llm_step6_trend_combined** - Generate trends files
+- **llm_step7_summarization** - Generate summarization
+- **step8_load_analytics_simple** - Load LLM generated data into the analytics schema
+- **dbt_run** - Generate the views for the dashboard
+
+### Optional DAGs
+
+- **update_youtube_comments_rotating** - Query YouTube API on already fetched videos to get comment updates (if you still have not reached YouTube quota)
+- **load_all_youtube_comment_updates** - Load these new comments in the raw schema
+
+Some other DAGs to load/extract files separately.
 
 
-Other optional dags :
-- update_youtube_comments_rotating    => query youtube API on already fetched videos, to get comment updates - if you still have not reached youtube quota
-- load_all_youtube_comment_updates    => load these new comments in the raw schema
-
-Some other dags to load/extract files separatly.
-
-
-## Database Backup & Restore
+## 💾 Database Backup & Restore
 
 The project includes comprehensive database backup and restore functionality for easy project forking and data sharing.
 
@@ -57,6 +68,7 @@ The project includes comprehensive database backup and restore functionality for
 ```
 
 This creates a `.tar.gz` file in the `backups/` directory containing:
+
 - Complete SQL dump of all schemas (raw, staging, analytics)
 - Backup metadata and restore instructions
 - Sample data for Japanese music trend analysis
@@ -78,6 +90,7 @@ This creates a `.tar.gz` file in the `backups/` directory containing:
 ```
 
 The restore script automatically:
+
 - Detects whether you're using Docker or local PostgreSQL
 - Extracts and validates the backup
 - Safely drops and recreates the database
@@ -85,74 +98,83 @@ The restore script automatically:
 
 Perfect for getting started with sample data when forking this project!
 
+## 📈 Project Status
 
+### Key Highlights
 
-## PROJECT STATUS :
-
-[NEXT]
-More logging
-More error handling
-More Unit tests
-More doc
-
---
-
-
-
-### Key Highlights:
 - ✅ Data ingestion from APIs
 - ✅ Data orchestration with Airflow
 - ✅ Data transformation and modeling with DBT
 - ✅ Natural Language Processing (Sentiment Analysis)
 - ✅ Interactive dashboard for stakeholders with Streamlit
 
----
+### Next Steps
+
+- More logging
+- More error handling
+- More unit tests
+- More documentation
 
 ## 🚀 Project Plan
 
-### 0. Setup Work environment
-**Sources:**
+### 0. Setup Work Environment
+
+**Setup:**
+
 - Init git, poetry, direnv
 - Install/Init Docker images to run Airflow, DBT, Postgres
 
 ### 1. Data Collection
+
 **Sources:**
-- Youtube API
+
+- YouTube API
 - Reddit (PRAW or Pushshift API)
 
 **Method:**
-- Python scripts as Airflow tasks to extract posts containing target keywords/hashtags.
+
+- Python scripts as Airflow tasks to extract posts containing target keywords/hashtags
 
 ### 2. Data Storage
-- Dockerized  **Postgres** database.
-- Design raw and staging tables for DBT transformations.
+
+- Dockerized **PostgreSQL** database
+- Design raw and staging tables for DBT transformations
 
 ### 3. Data Transformation (DBT)
-- Clean text data: remove noise (hashtags, URLs, emojis, etc.).
+
+- Clean text data: remove noise (hashtags, URLs, emojis, etc.)
 - Build models:
-  - Translation JP to EN (youtube only)
+  - Translation JP to EN (YouTube only)
   - Entity Extraction
   - Sentiment Analysis
   - Trend detection
   - Summarization
 
 ### 4. Models
-- Open-source libraries:
-  - Translation JP to EN (youtube only) => NLLB200
-  - Entity Extraction => OLLAMA
-  - Sentiment Analysis => OLLAMA
-  - Trend detection => OLLAMA
-  - Summarization => OLLAMA
+
+Open-source libraries:
+
+- **Translation JP to EN** (YouTube only) → NLLB200
+- **Entity Extraction** → OLLAMA
+- **Sentiment Analysis** → OLLAMA
+- **Trend detection** → OLLAMA
+- **Summarization** → OLLAMA
 
 ### 5. Workflow Orchestration (Airflow)
-- Automate the pipeline:
-  - Extract → Load → Transform (DBT) → Transform (Python/LLM) → Load  → Transform (DBT) →  Analyze
-  - Schedule  daily
+
+Automate the pipeline:
+
+- Extract → Load → Transform (DBT) → Transform (Python/LLM) → Load → Transform (DBT) → Analyze
+- Schedule daily
 
 ### 6. Visualization
-- Build a **dashboard** to display:
-  - Sentiment trends over time
-  - Most discussed topics
-  - Positive/negative sentiment spikes
-- Tools:
-  - Streamlit (Python-friendly)
+
+Build a **dashboard** to display:
+
+- Sentiment trends over time
+- Most discussed topics
+- Positive/negative sentiment spikes
+
+**Tools:**
+
+- Streamlit (Python-friendly)
